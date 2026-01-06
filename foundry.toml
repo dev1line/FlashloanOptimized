@@ -14,8 +14,7 @@ optimizer_runs = 20000
 via_ir = true
 # Tự động check kích thước contract
 auto_detect_solc = false
-# Kiểm tra size limit
-contract_size_limit = 24576
+# Note: Contract size checking is done manually in CI (see .github/workflows/ci.yml)
 # Verbose output
 verbosity = 2
 

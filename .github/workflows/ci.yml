@@ -104,6 +104,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,8 +116,15 @@ jobs:
           version: nightly
 
       - name: Generate coverage
+        env:
+          FOUNDRY_FUZZ_RUNS: 10
         run: |
-          forge coverage --report lcov
+          # Use very low fuzz runs for faster coverage generation
+          # Exclude invariant tests (they're slow and tested separately in the test job)
+          forge coverage \
+            --report lcov \
+            --fuzz-runs 10 \
+            --no-match-path "**/invariant/**"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
