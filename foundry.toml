@@ -2,10 +2,57 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-solc_version = "0.8.22"
+test = "test"
+cache_path = "cache"
+# Cố định version để tránh side-effects
+solc = "0.8.22"
 evm_version = "paris"
+# Bật Optimizer là bắt buộc cho production
 optimizer = true
-optimizer_runs = 200
+optimizer_runs = 20000
+# Sử dụng viaIR pipeline để tối ưu hóa sâu hơn (dù build chậm hơn)
 via_ir = true
+# Tự động check kích thước contract
+auto_detect_solc = false
+# Kiểm tra size limit
+contract_size_limit = 24576
+# Verbose output
+verbosity = 2
+
+# Gas reporting
+gas_reports = ["*"]
+
+# Fuzz testing configuration
+[fuzz]
+runs = 1000  # Tăng số lần chạy so với mặc định (256)
+max_test_rejects = 65536
+seed = '0x1234' # Seed cố định để dễ tái hiện lỗi (determinism)
+timeout = 3600  # 1 hour timeout for each fuzz test
+
+# Invariant testing configuration
+[invariant]
+runs = 256
+depth = 50
+fail_on_revert = false # Handler sẽ quản lý việc revert
+call_override = false
+dictionary_weight = 40
+include_storage = true
+include_push_bytes = true
+
+# Profile for CI/CD - faster builds
+[profile.ci]
+optimizer_runs = 200
+via_ir = false
+[fuzz.ci]
+runs = 100
+[invariant.ci]
+runs = 20
+depth = 15
+
+# Profile for coverage
+[profile.coverage]
+via_ir = true
+optimizer = true
+optimizer_runs = 1
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -1,0 +1,19 @@
+{
+  "detectors_to_exclude": [
+    "naming-convention",
+    "external-function",
+    "unused-state",
+    "pragma"
+  ],
+  "filter_paths": [
+    "lib",
+    "node_modules",
+    "cache",
+    "out"
+  ],
+  "solc_remaps": [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "forge-std/=lib/forge-std/src/"
+  ]
+}
+

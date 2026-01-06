@@ -1,0 +1,18 @@
+# Aderyn Configuration
+[exclude]
+paths = [
+  "lib",
+  "node_modules",
+  "cache",
+  "out",
+  "script"
+]
+
+[include]
+paths = [
+  "src"
+]
+
+# Severity filters
+severity = ["high", "medium"]
+

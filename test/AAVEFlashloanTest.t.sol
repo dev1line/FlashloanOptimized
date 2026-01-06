@@ -208,5 +208,166 @@ contract AAVEFlashloanTest is Test {
         flashloan.setPool(address(newPool));
         assertEq(address(flashloan.pool()), address(newPool));
     }
+    
+    // ============ FUZZ TESTS ============
+    
+    /// @notice Fuzz test for executeFlashloan with various amounts
+    function testFuzz_ExecuteFlashloan_Amount(uint256 amount) public {
+        // Bound amount to reasonable range: 1e18 to 1e24
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Ensure pool has enough liquidity
+        if (token.balanceOf(address(pool)) < amount) {
+            token.mint(address(pool), amount);
+        }
+        
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token));
+        
+        // Should succeed for valid amounts
+        flashloan.executeFlashloan(
+            address(token),
+            amount,
+            address(workflow),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Verify user received profit
+        uint256 userBalance = token.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
+    
+    /// @notice Fuzz test for setFee with various values
+    function testFuzz_SetFee(uint256 fee) public {
+        // Bound fee to valid range: 0 to MAX_FEE_BPS (1000)
+        fee = bound(fee, 0, 1000);
+        
+        vm.prank(owner);
+        flashloan.setFee(fee);
+        assertEq(flashloan.feeBps(), fee);
+    }
+    
+    /// @notice Fuzz test for setFee reverts when too high
+    function testFuzz_SetFee_RevertsIfTooHigh(uint256 fee) public {
+        // Bound fee to invalid range: > MAX_FEE_BPS (1000)
+        fee = bound(fee, 1001, type(uint256).max);
+        
+        vm.prank(owner);
+        vm.expectRevert();
+        flashloan.setFee(fee);
+    }
+    
+    /// @notice Fuzz test for setMinProfit with various values
+    function testFuzz_SetMinProfit(uint256 minProfit) public {
+        // Bound minProfit to reasonable range: 0 to 1000 (10%)
+        minProfit = bound(minProfit, 0, 1000);
+        
+        vm.prank(owner);
+        flashloan.setMinProfit(minProfit);
+        assertEq(flashloan.minProfitBps(), minProfit);
+    }
+    
+    /// @notice Fuzz test for executeFlashloan with various profit margins
+    function testFuzz_ExecuteFlashloan_ProfitMargin(uint256 profitBps) public {
+        // Bound profit margin: 150 to 500 (1.5% to 5%)
+        // Must be high enough to cover fees (50 bps) + min profit (10 bps) + buffer
+        profitBps = bound(profitBps, 150, 500);
+        
+        // Create workflow with specified profit margin
+        MockWorkflow customWorkflow = new MockWorkflow(address(token), 10000 + profitBps);
+        
+        // Ensure pool has enough liquidity
+        token.mint(address(pool), FLASHLOAN_AMOUNT * 2);
+        
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token));
+        
+        flashloan.executeFlashloan(
+            address(token),
+            FLASHLOAN_AMOUNT,
+            address(customWorkflow),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Verify user received profit
+        uint256 userBalance = token.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
+    
+    /// @notice Fuzz test for withdrawFees with various amounts
+    function testFuzz_WithdrawFees(uint256 amount) public {
+        // Bound amount to reasonable range
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Ensure pool has enough liquidity
+        token.mint(address(pool), amount * 2);
+        
+        // Execute flashloan to generate fees
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token));
+        flashloan.executeFlashloan(
+            address(token),
+            amount,
+            address(workflow),
+            workflowData
+        );
+        vm.stopPrank();
+        
+        // Get fees collected
+        uint256 feesBefore = token.balanceOf(address(flashloan));
+        if (feesBefore == 0) return; // Skip if no fees
+        
+        // Withdraw fees
+        vm.prank(owner);
+        flashloan.withdrawFees(address(token), feeRecipient);
+        
+        // Verify fees were withdrawn
+        uint256 feesAfter = token.balanceOf(address(flashloan));
+        assertEq(feesAfter, 0, "Fees should be withdrawn");
+        assertGt(token.balanceOf(feeRecipient), 0, "Fee recipient should receive fees");
+    }
+    
+    /// @notice Fuzz test for executeFlashloan reverts with invalid amounts
+    function testFuzz_ExecuteFlashloan_RevertsIfInvalidAmount(uint256 amount) public {
+        // Bound amount to invalid range: 0
+        if (amount == 0) {
+            vm.prank(user);
+            vm.expectRevert();
+            flashloan.executeFlashloan(
+                address(token),
+                amount,
+                address(workflow),
+                ""
+            );
+        }
+    }
+    
+    /// @notice Fuzz test for workflow data
+    function testFuzz_ExecuteFlashloan_WorkflowData(bytes memory workflowData) public {
+        // Limit workflowData size to prevent excessive gas usage
+        if (workflowData.length > 1000) return;
+        
+        // Ensure pool has enough liquidity
+        token.mint(address(pool), FLASHLOAN_AMOUNT * 2);
+        
+        vm.startPrank(user);
+        
+        flashloan.executeFlashloan(
+            address(token),
+            FLASHLOAN_AMOUNT,
+            address(workflow),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Should succeed regardless of workflow data (MockWorkflow ignores it)
+        uint256 userBalance = token.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
 }
 

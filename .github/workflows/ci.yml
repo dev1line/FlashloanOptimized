@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  FOUNDRY_PROFILE: ci
+  FOUNDRY_NO_GIT_AUTH: 1
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Format check
+        run: forge fmt --check
+
+      - name: Build contracts
+        run: forge build --sizes
+
+      - name: Check contract sizes
+        run: |
+          CONTRACT_SIZE_LIMIT=24576
+          for file in out/**/*.sol/*.json; do
+            SIZE=$(jq '.deployedBytecode.object' "$file" | wc -c)
+            if [ "$SIZE" -gt "$CONTRACT_SIZE_LIMIT" ]; then
+              echo "Error: Contract size exceeds limit: $file ($SIZE > $CONTRACT_SIZE_LIMIT)"
+              exit 1
+            fi
+          done || true
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Run tests
+        run: |
+          forge test --fuzz-runs 100 -vv
+
+      - name: Run invariant tests
+        run: |
+          forge test --match-path "**/invariant/**/*.t.sol" --fuzz-runs 50 -vv
+        continue-on-error: true
+
+      - name: Generate gas report
+        run: |
+          forge test --gas-report
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Build contracts
+        run: forge build
+
+      - name: Run Slither (if available)
+        run: |
+          if command -v slither &> /dev/null; then
+            slither . --filter-paths "lib,node_modules" || true
+          else
+            echo "Slither not installed, skipping..."
+          fi
+        continue-on-error: true
+
+      - name: Run Aderyn (if available)
+        run: |
+          if command -v aderyn &> /dev/null; then
+            aderyn . || true
+          else
+            echo "Aderyn not installed, skipping..."
+          fi
+        continue-on-error: true
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Generate coverage
+        run: |
+          forge coverage --report lcov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./lcov.info
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true

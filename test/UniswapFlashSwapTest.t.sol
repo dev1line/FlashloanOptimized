@@ -432,5 +432,294 @@ contract UniswapFlashSwapTest is Test {
         // Verify the workflow's same-token logic is tested separately
         // The MockWorkflow's same-token branch is covered by this execution
     }
+    
+    // ============ FUZZ TESTS ============
+    
+    /// @notice Fuzz test for executeFlashSwap with various amounts
+    function testFuzz_ExecuteFlashSwap_Amount(uint256 amount) public {
+        // Bound amount to reasonable range: 1e18 to 1e24
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Ensure pool has enough liquidity
+        if (token0.balanceOf(address(pool)) < amount) {
+            token0.mint(address(pool), amount);
+            token1.mint(address(pool), amount);
+        }
+        
+        // Create a workflow that returns token1 (needed to pay back pool)
+        MockWorkflow workflowToken1 = new MockWorkflow(address(token1), 10200); // 2% profit
+        token1.mint(address(workflowToken1), amount * 10);
+        token0.mint(address(workflowToken1), amount * 10);
+        
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token1));
+        
+        flashSwap.executeFlashSwap(
+            address(pool),
+            address(token0),
+            address(token1),
+            amount,
+            address(workflowToken1),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Verify: user should receive profit in token0
+        uint256 userBalance = token0.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
+    
+    /// @notice Fuzz test for setFee with various values
+    function testFuzz_SetFee(uint256 fee) public {
+        // Bound fee to valid range: 0 to MAX_FEE_BPS (1000)
+        fee = bound(fee, 0, 1000);
+        
+        vm.prank(owner);
+        flashSwap.setFee(fee);
+        assertEq(flashSwap.feeBps(), fee);
+    }
+    
+    /// @notice Fuzz test for setFee reverts if not owner
+    function testFuzz_SetFee_RevertsIfNotOwner(address notOwner, uint256 fee) public {
+        // Ensure notOwner is not the owner
+        vm.assume(notOwner != owner);
+        fee = bound(fee, 0, 1000);
+        
+        vm.prank(notOwner);
+        vm.expectRevert();
+        flashSwap.setFee(fee);
+    }
+    
+    /// @notice Fuzz test for setMinProfit with various values
+    function testFuzz_SetMinProfit(uint256 minProfit) public {
+        // Bound minProfit to reasonable range: 0 to 1000 (10%)
+        minProfit = bound(minProfit, 0, 1000);
+        
+        vm.prank(owner);
+        flashSwap.setMinProfit(minProfit);
+        assertEq(flashSwap.minProfitBps(), minProfit);
+    }
+    
+    /// @notice Fuzz test for setMinProfit reverts if not owner
+    function testFuzz_SetMinProfit_RevertsIfNotOwner(address notOwner, uint256 minProfit) public {
+        // Ensure notOwner is not the owner
+        vm.assume(notOwner != owner);
+        minProfit = bound(minProfit, 0, 1000);
+        
+        vm.prank(notOwner);
+        vm.expectRevert();
+        flashSwap.setMinProfit(minProfit);
+    }
+    
+    /// @notice Fuzz test for executeFlashSwap with various profit margins
+    function testFuzz_ExecuteFlashSwap_ProfitMargin(uint256 profitBps) public {
+        // Bound profit margin: 200 to 500 (2% to 5%)
+        // Must be high enough to cover fees (50 bps) + min profit (10 bps) + Uniswap fee (30 bps) + buffer
+        profitBps = bound(profitBps, 200, 500);
+        
+        // Ensure pool has enough liquidity
+        token0.mint(address(pool), SWAP_AMOUNT * 2);
+        token1.mint(address(pool), SWAP_AMOUNT * 2);
+        
+        // Create workflow with specified profit margin
+        MockWorkflow customWorkflow = new MockWorkflow(address(token1), 10000 + profitBps);
+        token1.mint(address(customWorkflow), SWAP_AMOUNT * 10);
+        token0.mint(address(customWorkflow), SWAP_AMOUNT * 10);
+        
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token1));
+        
+        flashSwap.executeFlashSwap(
+            address(pool),
+            address(token0),
+            address(token1),
+            SWAP_AMOUNT,
+            address(customWorkflow),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Verify user received profit
+        uint256 userBalance = token0.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
+    
+    /// @notice Fuzz test for executeFlashSwap reverse direction with various amounts
+    function testFuzz_ExecuteFlashSwap_ReverseDirection(uint256 amount) public {
+        // Bound amount to reasonable range
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Ensure pool has enough liquidity
+        if (token0.balanceOf(address(pool)) < amount) {
+            token0.mint(address(pool), amount);
+            token1.mint(address(pool), amount);
+        }
+        
+        // Test swap in reverse direction: receive token1, pay back token0
+        MockWorkflow workflowToken0 = new MockWorkflow(address(token0), 10200);
+        token0.mint(address(workflowToken0), amount * 10);
+        token1.mint(address(workflowToken0), amount * 10);
+        
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token0));
+        
+        flashSwap.executeFlashSwap(
+            address(pool),
+            address(token1),
+            address(token0),
+            amount,
+            address(workflowToken0),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Verify: user should receive profit in token1
+        uint256 userBalance = token1.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
+    
+    /// @notice Fuzz test for withdrawFees with various amounts
+    function testFuzz_WithdrawFees(uint256 amount) public {
+        // Bound amount to reasonable range
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Ensure pool has enough liquidity
+        if (token0.balanceOf(address(pool)) < amount) {
+            token0.mint(address(pool), amount * 2);
+            token1.mint(address(pool), amount * 2);
+        }
+        
+        // Execute a flash swap to generate fees
+        MockWorkflow workflowToken1 = new MockWorkflow(address(token1), 10200);
+        token1.mint(address(workflowToken1), amount * 10);
+        token0.mint(address(workflowToken1), amount * 10);
+        
+        vm.prank(user);
+        flashSwap.executeFlashSwap(
+            address(pool),
+            address(token0),
+            address(token1),
+            amount,
+            address(workflowToken1),
+            abi.encode(address(token1))
+        );
+        
+        // Check that contract has fee balance
+        uint256 feeBalance = token0.balanceOf(address(flashSwap));
+        if (feeBalance == 0) return; // Skip if no fees
+        
+        // Withdraw fees
+        uint256 recipientBalanceBefore = token0.balanceOf(feeRecipient);
+        vm.prank(owner);
+        flashSwap.withdrawFees(address(token0), feeRecipient);
+        
+        uint256 recipientBalanceAfter = token0.balanceOf(feeRecipient);
+        assertEq(recipientBalanceAfter - recipientBalanceBefore, feeBalance, "Fees should be withdrawn");
+    }
+    
+    /// @notice Fuzz test for withdrawFees reverts if not owner
+    function testFuzz_WithdrawFees_RevertsIfNotOwner(address notOwner) public {
+        // Ensure notOwner is not the owner
+        vm.assume(notOwner != owner);
+        
+        vm.prank(notOwner);
+        vm.expectRevert();
+        flashSwap.withdrawFees(address(token0), feeRecipient);
+    }
+    
+    /// @notice Fuzz test for emergencyWithdraw with various ETH amounts
+    function testFuzz_EmergencyWithdraw(uint256 ethAmount) public {
+        // Bound ETH amount to reasonable range: 0.01 to 100 ETH
+        ethAmount = bound(ethAmount, 0.01 ether, 100 ether);
+        
+        // Send ETH to contract
+        vm.deal(address(flashSwap), ethAmount);
+        
+        uint256 ownerBalanceBefore = owner.balance;
+        vm.prank(owner);
+        flashSwap.emergencyWithdraw();
+        
+        uint256 ownerBalanceAfter = owner.balance;
+        assertEq(ownerBalanceAfter - ownerBalanceBefore, ethAmount, "ETH should be withdrawn");
+    }
+    
+    /// @notice Fuzz test for emergencyWithdraw reverts if not owner
+    function testFuzz_EmergencyWithdraw_RevertsIfNotOwner(address notOwner, uint256 ethAmount) public {
+        // Ensure notOwner is not the owner
+        vm.assume(notOwner != owner);
+        ethAmount = bound(ethAmount, 0.01 ether, 100 ether);
+        
+        vm.deal(address(flashSwap), ethAmount);
+        vm.prank(notOwner);
+        vm.expectRevert();
+        flashSwap.emergencyWithdraw();
+    }
+    
+    /// @notice Fuzz test for workflow data
+    function testFuzz_ExecuteFlashSwap_WorkflowData(bytes memory workflowData) public {
+        // Limit workflowData size to prevent excessive gas usage
+        if (workflowData.length > 1000) return;
+        
+        // Ensure pool has enough liquidity
+        token0.mint(address(pool), SWAP_AMOUNT * 2);
+        token1.mint(address(pool), SWAP_AMOUNT * 2);
+        
+        MockWorkflow workflowToken1 = new MockWorkflow(address(token1), 10200);
+        token1.mint(address(workflowToken1), SWAP_AMOUNT * 10);
+        token0.mint(address(workflowToken1), SWAP_AMOUNT * 10);
+        
+        vm.startPrank(user);
+        
+        flashSwap.executeFlashSwap(
+            address(pool),
+            address(token0),
+            address(token1),
+            SWAP_AMOUNT,
+            address(workflowToken1),
+            workflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Should succeed regardless of workflow data (MockWorkflow ignores it)
+        uint256 userBalance = token0.balanceOf(user);
+        assertGt(userBalance, 0, "User should receive profit");
+    }
+    
+    /// @notice Fuzz test for executeFlashSwap reverts with insufficient profit
+    /// @dev Tests profit values between 1-9 bps (below the 10 bps minimum)
+    /// Note: profit = 0 is handled differently, so we skip it in fuzz testing
+    function testFuzz_ExecuteFlashSwap_RevertsIfInsufficientProfit(uint8 profitBps) public {
+        // Skip profit = 0 as it may throw a different error
+        vm.assume(profitBps > 0 && profitBps < 10);
+        
+        // Ensure pool has enough liquidity
+        token0.mint(address(pool), SWAP_AMOUNT * 2);
+        token1.mint(address(pool), SWAP_AMOUNT * 2);
+        
+        // Create workflow with insufficient profit
+        // profitMultiplier = 10000 + profitBps means profit is profitBps bps
+        // For example: 10000 + 5 = 10005 means 0.05% profit (5 bps)
+        // This is below the minimum 10 bps requirement
+        uint256 profitMultiplier = 10000 + uint256(profitBps);
+        
+        MockWorkflow lowProfitWorkflow = new MockWorkflow(address(token1), profitMultiplier);
+        token1.mint(address(lowProfitWorkflow), SWAP_AMOUNT * 10);
+        token0.mint(address(lowProfitWorkflow), SWAP_AMOUNT * 10);
+        
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSignature("InsufficientProfit()"));
+        flashSwap.executeFlashSwap(
+            address(pool),
+            address(token0),
+            address(token1),
+            SWAP_AMOUNT,
+            address(lowProfitWorkflow),
+            abi.encode(address(token1))
+        );
+    }
 }
 

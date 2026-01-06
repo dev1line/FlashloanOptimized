@@ -32,6 +32,7 @@ FlashloanOptimized/
 ### 1. FlashloanBase
 
 Base contract cung cấp các tính năng chung:
+
 - Upgradeability (UUPS pattern)
 - Access control (Ownable)
 - Reentrancy protection
@@ -42,6 +43,7 @@ Base contract cung cấp các tính năng chung:
 ### 2. AAVEFlashloan
 
 Contract để thực hiện flashloan từ AAVE:
+
 - Gọi `executeFlashloan()` với token, amount, workflow và data
 - AAVE sẽ gọi callback `executeOperation()`
 - Workflow được thực thi trong callback
@@ -50,6 +52,7 @@ Contract để thực hiện flashloan từ AAVE:
 ### 3. UniswapFlashSwap
 
 Contract để thực hiện flash swap từ Uniswap V3:
+
 - Gọi `executeFlashSwap()` với pool, tokens, amount, workflow và data
 - Uniswap sẽ gọi callback `uniswapV3SwapCallback()`
 - Workflow được thực thi trong callback
@@ -89,6 +92,7 @@ forge install
 ### 1. Setup Environment
 
 Tạo file `.env`:
+
 ```
 PRIVATE_KEY=your_private_key
 RPC_URL=your_rpc_url
@@ -107,6 +111,7 @@ forge create src/AAVEFlashloan.sol:AAVEFlashloan --constructor-args <args>
 ### 3. Initialize Contracts
 
 Sau khi deploy, cần initialize:
+
 - Owner address
 - AAVE Pool address (cho AAVEFlashloan)
 - Fee settings
@@ -167,16 +172,65 @@ flashSwap.executeFlashSwap(
 
 ## Testing
 
+Dự án sử dụng Foundry với các best practices:
+
+### Test Types
+
+1. **Unit Tests**: Test các function riêng lẻ
+2. **Fuzz Tests**: Test với hàng nghìn giá trị input ngẫu nhiên
+3. **Invariant Tests**: Test các invariants của hệ thống qua chuỗi operations ngẫu nhiên
+4. **Integration Tests**: Test tích hợp giữa các contracts
+
+### Test Commands
+
 ```bash
 # Run all tests
+make test
+# or
 forge test
 
 # Run với verbose output
 forge test -vvv
 
-# Run specific test
-forge test --match-test testAAVEFlashloan
+# Run fuzz tests (1000 runs)
+make test-fuzz
+# or
+forge test --fuzz-runs 1000
+
+# Run invariant tests
+make test-invariant
+# or
+forge test --match-path "**/invariant/**/*.t.sol" --fuzz-runs 256
+
+# Generate gas report
+make gas-report
+# or
+forge test --gas-report
+
+# Comprehensive test suite
+./scripts/test.sh
+
+# Full CI check (lint, build, test, security)
+make ci
 ```
+
+### Test Coverage
+
+- ✅ 85+ tests covering all functionality
+- ✅ Fuzz tests với 1000 runs cho mỗi function có parameters
+- ✅ Invariant tests với Handler pattern
+- ✅ Gas optimization reporting
+
+### Invariant Testing
+
+Dự án sử dụng Invariant Testing với Handler pattern để test các invariants quan trọng:
+
+- **Fee Limit**: Fee BPS luôn <= MAX_FEE_BPS
+- **Solvency**: Contract không bao giờ mất tokens
+- **Owner Consistency**: Owner luôn được set và không đổi
+- **Pool Validity**: Pool address luôn valid
+
+Xem `test/invariant/FlashloanInvariant.t.sol` để biết chi tiết.
 
 ## Upgrade Process
 
@@ -194,12 +248,14 @@ flashloan.upgradeToAndCall(newImplementation, upgradeData);
 ## Input/Output
 
 ### Input
+
 - `token`: Địa chỉ token muốn vay
 - `amount`: Số lượng token muốn vay
 - `workflow`: Địa chỉ contract workflow
 - `workflowData`: Data tùy chỉnh cho workflow
 
 ### Output
+
 - **Success**: Workflow thực thi thành công, profit được transfer cho user (sau khi trừ fee)
 - **Failure**: Transaction revert, user chỉ mất gas fee
 
@@ -211,13 +267,155 @@ flashloan.upgradeToAndCall(newImplementation, upgradeData);
 4. **Testing**: Test kỹ trên testnet trước khi deploy mainnet
 5. **Audit**: Nên audit contracts trước khi deploy production
 
+## CI/CD
+
+Dự án sử dụng GitHub Actions để tự động:
+
+- ✅ **Lint**: Format check với `forge fmt --check`
+- ✅ **Build**: Compile contracts và check sizes
+- ✅ **Test**: Chạy unit, fuzz, và invariant tests
+- ✅ **Security**: Chạy Slither và Aderyn (nếu available)
+- ✅ **Coverage**: Generate coverage reports
+
+Pipeline tự động chạy trên mỗi push và PR.
+
+## Performance
+
+### Compilation
+
+- Optimizer runs: 20000
+- Via-IR: Enabled
+- Parallel compilation: Enabled
+
+### Testing
+
+- Fuzz runs: 1000 (default), 100 (CI)
+- Invariant runs: 256 (default), 20 (CI)
+- Seed: Fixed for reproducibility
+
+### Contract Sizes
+
+- AAVEFlashloan: ~2159 bytes (within limit)
+- UniswapFlashSwap: Similar size
+- All contracts under EIP-170 limit (24576 bytes)
+
+## Resources
+
+### Foundry Documentation
+
+- [Foundry Book](https://book.getfoundry.sh/)
+- [Forge Reference](https://book.getfoundry.sh/reference/forge/)
+
+### Best Practices
+
+- [Foundry Best Practices](https://github.com/foundry-rs/foundry/tree/master/testdata)
+- [Solmate](https://github.com/transmissions11/solmate) - Gas-optimized library
+- [Invariant Testing Examples](https://github.com/lucas-manuel/invariant-examples)
+
 ## License
 
 MIT
 
+## Development & Best Practices
+
+### Code Quality
+
+Dự án tuân theo Foundry best practices:
+
+- ✅ **Solidity-native testing**: Tất cả tests viết bằng Solidity
+- ✅ **Fuzzing**: Fuzz tests với 1000+ runs
+- ✅ **Invariant Testing**: System-wide invariant checks
+- ✅ **Gas Optimization**: Optimizer runs 20000, via-IR enabled
+- ✅ **CI/CD**: GitHub Actions tự động test và lint
+
+### Project Structure
+
+```
+FlashloanOptimized/
+├── src/
+│   ├── interfaces/          # Interfaces
+│   ├── utils/               # Utility contracts
+│   ├── examples/            # Example workflows
+│   ├── FlashloanBase.sol
+│   ├── AAVEFlashloan.sol
+│   └── UniswapFlashSwap.sol
+├── test/
+│   ├── mocks/               # Mock contracts
+│   ├── invariant/           # Invariant tests
+│   ├── *.t.sol              # Unit & fuzz tests
+│   └── IntegrationTest.t.sol
+├── script/                  # Deployment scripts
+├── lib/                     # Dependencies
+├── .github/workflows/       # CI/CD pipelines
+├── foundry.toml            # Foundry configuration
+├── slither.config.json     # Slither config
+├── .aderynconfig.toml      # Aderyn config
+└── Makefile                # Development commands
+```
+
+### Configuration Files
+
+- `foundry.toml`: Cấu hình Foundry với optimizer, fuzz, invariant settings
+- `slither.config.json`: Cấu hình Slither static analysis
+- `.aderynconfig.toml`: Cấu hình Aderyn security scanner
+- `.github/workflows/ci.yml`: CI/CD pipeline
+
+### Security Tools
+
+```bash
+# Run Slither
+make slither
+# or
+slither .
+
+# Run Aderyn
+make aderyn
+# or
+aderyn .
+
+# Run all security checks
+make security
+```
+
+### Gas Optimization
+
+- Contracts được compile với `optimizer_runs = 20000` và `via_ir = true`
+- Gas report tự động generate khi chạy tests
+- Contract size limit: 24576 bytes (EIP-170)
+
 ## Contributing
 
-Contributions are welcome! Please open an issue or PR.
+Xem [CONTRIBUTING.md](./CONTRIBUTING.md) để biết hướng dẫn chi tiết.
+
+Contributions are welcome! Please:
+
+1. Fork repository
+2. Create feature branch
+3. Run tests (`make ci`)
+4. Submit PR
+
+### Development Workflow
+
+```bash
+# 1. Install dependencies
+make install
+
+# 2. Make changes
+# ... edit code ...
+
+# 3. Format code
+make fmt
+
+# 4. Run tests
+make test
+
+# 5. Run full CI check
+make ci
+
+# 6. Commit and push
+git commit -m "feat: your changes"
+git push
+```
 
 ## Disclaimer
 

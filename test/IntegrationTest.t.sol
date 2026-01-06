@@ -239,5 +239,182 @@ contract IntegrationTest is Test {
         aaveFlashloan.setMinProfit(20); // 0.2%
         assertEq(aaveFlashloan.minProfitBps(), 20);
     }
+    
+    // ============ FUZZ TESTS ============
+    
+    /// @notice Fuzz test for AAVE flashloan integration with various amounts
+    function testFuzz_AAVE_Flashloan_Integration_Amount(uint256 amount) public {
+        // Bound amount to reasonable range: 1e18 to 1e24
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Ensure pool has enough liquidity
+        if (token.balanceOf(address(aavePool)) < amount) {
+            token.mint(address(aavePool), amount);
+        }
+        
+        uint256 userBalanceBefore = token.balanceOf(user);
+        
+        vm.prank(user);
+        bytes memory workflowData = abi.encode(address(token));
+        aaveFlashloan.executeFlashloan(
+            address(token),
+            amount,
+            address(workflow),
+            workflowData
+        );
+        
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertGt(userBalanceAfter, userBalanceBefore, "User should profit");
+        
+        // Verify fees collected
+        uint256 fees = token.balanceOf(address(aaveFlashloan));
+        assertGt(fees, 0, "Fees should be collected");
+    }
+    
+    /// @notice Fuzz test for Uniswap flash swap integration with various amounts
+    function testFuzz_Uniswap_FlashSwap_Integration_Amount(uint256 amount) public {
+        // Bound amount to reasonable range: 1e18 to 1e24
+        amount = bound(amount, 1e18, 1e24);
+        
+        // Create workflow that returns token1 (needed to pay back)
+        MockWorkflow workflowToken1 = new MockWorkflow(address(token1), 10200);
+        token1.mint(address(workflowToken1), amount * 10);
+        token0.mint(address(workflowToken1), amount * 10);
+        
+        // Ensure pool has enough liquidity
+        if (token0.balanceOf(address(uniswapPool)) < amount) {
+            token0.mint(address(uniswapPool), amount);
+            token1.mint(address(uniswapPool), amount);
+        }
+        
+        uint256 userBalanceBefore = token0.balanceOf(user);
+        
+        vm.prank(user);
+        bytes memory workflowData = abi.encode(address(token1));
+        uniswapFlashSwap.executeFlashSwap(
+            address(uniswapPool),
+            address(token0),
+            address(token1),
+            amount,
+            address(workflowToken1),
+            workflowData
+        );
+        
+        uint256 userBalanceAfter = token0.balanceOf(user);
+        assertGt(userBalanceAfter, userBalanceBefore, "User should profit");
+    }
+    
+    /// @notice Fuzz test for fee collection with various amounts
+    function testFuzz_Fee_Collection_And_Withdrawal(uint256 amount) public {
+        // Bound amount to reasonable range
+        amount = bound(amount, 1e18, 1e24);
+        
+        address feeRecipient = address(0x3);
+        
+        // Ensure pool has enough liquidity
+        token.mint(address(aavePool), amount * 2);
+        
+        // Execute flashloan to generate fees
+        vm.prank(user);
+        bytes memory workflowData = abi.encode(address(token));
+        aaveFlashloan.executeFlashloan(
+            address(token),
+            amount,
+            address(workflow),
+            workflowData
+        );
+        
+        uint256 feesBefore = token.balanceOf(address(aaveFlashloan));
+        if (feesBefore == 0) return; // Skip if no fees
+        
+        // Withdraw fees
+        vm.prank(owner);
+        aaveFlashloan.withdrawFees(address(token), feeRecipient);
+        
+        uint256 feesAfter = token.balanceOf(address(aaveFlashloan));
+        assertEq(feesAfter, 0, "Fees should be withdrawn");
+        assertGt(token.balanceOf(feeRecipient), 0, "Fee recipient should receive fees");
+    }
+    
+    /// @notice Fuzz test for fee configuration
+    function testFuzz_Fee_Configuration(uint256 fee, uint256 minProfit) public {
+        // Bound values to valid ranges
+        fee = bound(fee, 0, 1000);
+        minProfit = bound(minProfit, 0, 1000);
+        
+        // Change fee
+        vm.prank(owner);
+        aaveFlashloan.setFee(fee);
+        assertEq(aaveFlashloan.feeBps(), fee);
+        
+        // Change min profit
+        vm.prank(owner);
+        aaveFlashloan.setMinProfit(minProfit);
+        assertEq(aaveFlashloan.minProfitBps(), minProfit);
+    }
+    
+    /// @notice Fuzz test for multiple flashloans sequential with various amounts
+    function testFuzz_Multiple_Flashloans_Sequential(uint256 amount) public {
+        // Bound amount to reasonable range
+        amount = bound(amount, 1e18, 1e23);
+        
+        // Ensure pools have enough liquidity
+        token.mint(address(aavePool), amount * 2);
+        token0.mint(address(uniswapPool), amount * 2);
+        token1.mint(address(uniswapPool), amount * 2);
+        
+        // Create workflow for Uniswap that returns token1
+        MockWorkflow workflowToken1 = new MockWorkflow(address(token1), 10200);
+        token1.mint(address(workflowToken1), amount * 10);
+        
+        // Execute AAVE flashloan
+        vm.startPrank(user);
+        bytes memory workflowData = abi.encode(address(token));
+        
+        aaveFlashloan.executeFlashloan(
+            address(token),
+            amount,
+            address(workflow),
+            workflowData
+        );
+        
+        // Execute Uniswap flash swap
+        bytes memory uniswapWorkflowData = abi.encode(address(token1));
+        uniswapFlashSwap.executeFlashSwap(
+            address(uniswapPool),
+            address(token0),
+            address(token1),
+            amount,
+            address(workflowToken1),
+            uniswapWorkflowData
+        );
+        
+        vm.stopPrank();
+        
+        // Both should succeed
+        assertGt(token.balanceOf(user), 0);
+        assertGt(token0.balanceOf(user), 0);
+    }
+    
+    /// @notice Fuzz test for workflow data
+    function testFuzz_AAVE_Flashloan_WorkflowData(bytes memory workflowData) public {
+        // Limit workflowData size to prevent excessive gas usage
+        if (workflowData.length > 1000) return;
+        
+        // Ensure pool has enough liquidity
+        token.mint(address(aavePool), AMOUNT * 2);
+        
+        vm.prank(user);
+        aaveFlashloan.executeFlashloan(
+            address(token),
+            AMOUNT,
+            address(workflow),
+            workflowData
+        );
+        
+        // Should succeed regardless of workflow data (MockWorkflow ignores it)
+        uint256 userBalance = token.balanceOf(user);
+        assertGt(userBalance, 0, "User should profit");
+    }
 }
 
