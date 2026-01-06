@@ -9,7 +9,6 @@ import {StorageSlot} from "@openzeppelin/contracts/utils/StorageSlot.sol";
  * @notice Upgradeable version of ReentrancyGuard for use with proxy contracts
  */
 abstract contract ReentrancyGuardUpgradeable is Initializable {
-
     bytes32 private constant REENTRANCY_GUARD_STORAGE =
         0x9b779b17422d0df92223018b32b4d1fa46e071723d6817e2486d003becc55f00;
 
@@ -51,4 +50,3 @@ abstract contract ReentrancyGuardUpgradeable is Initializable {
         StorageSlot.getUint256Slot(REENTRANCY_GUARD_STORAGE).value = NOT_ENTERED;
     }
 }
-

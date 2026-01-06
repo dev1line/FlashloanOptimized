@@ -10,13 +10,13 @@ contract DeployScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Deploy AAVE Flashloan
         console.log("Deploying AAVE Flashloan...");
         AAVEFlashloan aaveImpl = new AAVEFlashloan();
-        
+
         // Initialize data
         bytes memory initData = abi.encodeWithSelector(
             AAVEFlashloan.initialize.selector,
@@ -25,33 +25,26 @@ contract DeployScript is Script {
             50, // feeBps (0.5%)
             10 // minProfitBps (0.1%)
         );
-        
-        ERC1967Proxy aaveProxy = new ERC1967Proxy(
-            address(aaveImpl),
-            initData
-        );
-        
+
+        ERC1967Proxy aaveProxy = new ERC1967Proxy(address(aaveImpl), initData);
+
         console.log("AAVE Flashloan deployed at:", address(aaveProxy));
-        
+
         // Deploy Uniswap Flash Swap
         console.log("Deploying Uniswap Flash Swap...");
         UniswapFlashSwap uniswapImpl = new UniswapFlashSwap();
-        
+
         bytes memory uniswapInitData = abi.encodeWithSelector(
             UniswapFlashSwap.initialize.selector,
             deployer, // owner
             50, // feeBps (0.5%)
             10 // minProfitBps (0.1%)
         );
-        
-        ERC1967Proxy uniswapProxy = new ERC1967Proxy(
-            address(uniswapImpl),
-            uniswapInitData
-        );
-        
+
+        ERC1967Proxy uniswapProxy = new ERC1967Proxy(address(uniswapImpl), uniswapInitData);
+
         console.log("Uniswap Flash Swap deployed at:", address(uniswapProxy));
-        
+
         vm.stopBroadcast();
     }
 }
-

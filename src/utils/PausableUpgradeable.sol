@@ -83,6 +83,4 @@ abstract contract PausableUpgradeable is Initializable {
         _paused = false;
         emit Unpaused(msg.sender);
     }
-
 }
-

@@ -70,4 +70,3 @@ abstract contract OwnableUpgradeable is Initializable {
         emit OwnershipTransferred(oldOwner, newOwner);
     }
 }
-

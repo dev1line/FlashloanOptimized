@@ -14,10 +14,7 @@ interface IFlashloanWorkflow {
      * @return success Whether the workflow executed successfully
      * @return profit The profit made from the workflow (if any)
      */
-    function executeWorkflow(
-        address token,
-        uint256 amount,
-        bytes calldata data
-    ) external returns (bool success, uint256 profit);
+    function executeWorkflow(address token, uint256 amount, bytes calldata data)
+        external
+        returns (bool success, uint256 profit);
 }
-

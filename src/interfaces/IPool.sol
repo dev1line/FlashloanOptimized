@@ -30,4 +30,3 @@ interface IPool {
         uint16 referralCode
     ) external;
 }
-

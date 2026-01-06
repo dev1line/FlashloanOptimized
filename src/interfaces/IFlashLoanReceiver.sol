@@ -23,4 +23,3 @@ interface IFlashLoanReceiver {
         bytes calldata params
     ) external returns (bool);
 }
-

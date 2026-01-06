@@ -9,7 +9,7 @@ interface IUniswapV3Pool {
     function token0() external view returns (address);
     function token1() external view returns (address);
     function fee() external view returns (uint24);
-    
+
     /**
      * @notice Swap token0 for token1, or token1 for token0
      * @param recipient The address to receive the output of the swap
@@ -29,4 +29,3 @@ interface IUniswapV3Pool {
         bytes calldata data
     ) external returns (int256 amount0, int256 amount1);
 }
-
