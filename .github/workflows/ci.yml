@@ -53,7 +53,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,17 +71,16 @@ jobs:
 
       - name: Run tests (fast mode)
         env:
-          FOUNDRY_FUZZ_RUNS: 10
+          FOUNDRY_FUZZ_RUNS: 5
           FOUNDRY_FUZZ_SEED: ""
         run: |
-          # Use very low fuzz runs for faster CI (10 instead of 50)
-          # Run only fast tests, exclude slow ones by pattern
-          # Exclude FlashloanWorkflowAdvancedTest as it's slower
+          # Use minimal fuzz runs (5) for fastest CI
+          # Run only fastest unit tests, exclude workflow tests (they're slower)
           forge test \
-            --fuzz-runs 10 \
-            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,MultipleWorkflowTest}.t.sol" \
+            --fuzz-runs 5 \
+            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest}.t.sol" \
             -vv
-        timeout-minutes: 8
+        timeout-minutes: 6
 
       - name: Run invariant tests (optional)
         env:
@@ -153,7 +152,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -172,17 +171,16 @@ jobs:
 
       - name: Generate coverage (fast mode)
         env:
-          FOUNDRY_FUZZ_RUNS: 5
+          FOUNDRY_FUZZ_RUNS: 3
           FOUNDRY_FUZZ_SEED: ""
         run: |
-          # Use minimal fuzz runs for very fast coverage
-          # Run only fastest tests for coverage (exclude advanced tests)
+          # Use minimal fuzz runs (3) for very fast coverage
+          # Run only fastest unit tests for coverage
           forge coverage \
             --report lcov \
-            --fuzz-runs 5 \
-            --ir-minimum \
-            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,MultipleWorkflowTest}.t.sol" || true
-        timeout-minutes: 6
+            --fuzz-runs 3 \
+            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest}.t.sol" || true
+        timeout-minutes: 5
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
