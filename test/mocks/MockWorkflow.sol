@@ -20,7 +20,11 @@ contract MockWorkflow is IFlashloanWorkflow {
         profitMultiplier = _profitMultiplier;
     }
 
-    function executeWorkflow(address token, uint256 amount, bytes calldata /* data */ )
+    function executeWorkflow(
+        address token,
+        uint256 amount,
+        bytes calldata /* data */
+    )
         external
         override
         returns (bool success, uint256 profit)

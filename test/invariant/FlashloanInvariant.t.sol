@@ -313,7 +313,8 @@ contract Handler is Test {
         vm.startPrank(flashloan.owner());
         try flashloan.setFee(feeBps) {
             // Success
-        } catch {
+        }
+        catch {
             // May revert if invalid
         }
         vm.stopPrank();
@@ -328,7 +329,8 @@ contract Handler is Test {
         vm.startPrank(flashloan.owner());
         try flashloan.setMinProfit(minProfitBps) {
             // Success
-        } catch {
+        }
+        catch {
             // May revert
         }
         vm.stopPrank();

@@ -52,8 +52,9 @@ contract IntegrationTest is Test {
 
         // Deploy AAVE Flashloan
         AAVEFlashloan aaveImpl = new AAVEFlashloan();
-        bytes memory aaveInitData =
-            abi.encodeWithSelector(AAVEFlashloan.initialize.selector, owner, address(aavePool), FEE_BPS, MIN_PROFIT_BPS);
+        bytes memory aaveInitData = abi.encodeWithSelector(
+            AAVEFlashloan.initialize.selector, owner, address(aavePool), FEE_BPS, MIN_PROFIT_BPS
+        );
         ERC1967Proxy aaveProxy = new ERC1967Proxy(address(aaveImpl), aaveInitData);
         aaveFlashloan = AAVEFlashloan(address(aaveProxy));
 

@@ -22,7 +22,11 @@ contract MockUniswapPool is IUniswapV3Pool {
         int256 amountSpecified,
         uint160, /* sqrtPriceLimitX96 */
         bytes calldata data
-    ) external override returns (int256 amount0, int256 amount1) {
+    )
+        external
+        override
+        returns (int256 amount0, int256 amount1)
+    {
         // Simplified swap logic for testing with proper fee calculation
         // Uniswap V3 fee is in basis points of 1000000 (fee = 3000 means 0.3%)
         if (zeroForOne) {
