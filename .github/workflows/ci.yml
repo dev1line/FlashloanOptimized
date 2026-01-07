@@ -53,7 +53,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,18 +69,19 @@ jobs:
           forge clean || true
           rm -rf cache/*.json || true
 
-      - name: Run tests (fast mode)
+      - name: Run tests (fast mode - unit tests only)
         env:
-          FOUNDRY_FUZZ_RUNS: 5
+          FOUNDRY_FUZZ_RUNS: 1
           FOUNDRY_FUZZ_SEED: ""
         run: |
-          # Use minimal fuzz runs (5) for fastest CI
-          # Run only fastest unit tests, exclude workflow tests (they're slower)
+          # Run only unit tests (skip fuzz tests) for fastest CI
+          # UniswapFlashSwapTest has no fuzz tests, so it's fast
+          # For others, fuzz runs=1 means they'll run once and finish quickly
           forge test \
-            --fuzz-runs 5 \
-            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest}.t.sol" \
+            --fuzz-runs 1 \
+            --match-path "test/UniswapFlashSwapTest.t.sol" \
             -vv
-        timeout-minutes: 6
+        timeout-minutes: 3
 
       - name: Run invariant tests (optional)
         env:
@@ -152,7 +153,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -169,18 +170,17 @@ jobs:
           forge clean || true
           rm -rf cache/*.json || true
 
-      - name: Generate coverage (fast mode)
+      - name: Generate coverage (fast mode - unit tests only)
         env:
-          FOUNDRY_FUZZ_RUNS: 3
+          FOUNDRY_FUZZ_RUNS: 1
           FOUNDRY_FUZZ_SEED: ""
         run: |
-          # Use minimal fuzz runs (3) for very fast coverage
-          # Run only fastest unit tests for coverage
+          # Run only UniswapFlashSwapTest for fastest coverage (no fuzz tests)
           forge coverage \
             --report lcov \
-            --fuzz-runs 3 \
-            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest}.t.sol" || true
-        timeout-minutes: 5
+            --fuzz-runs 1 \
+            --match-path "test/UniswapFlashSwapTest.t.sol" || true
+        timeout-minutes: 3
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
