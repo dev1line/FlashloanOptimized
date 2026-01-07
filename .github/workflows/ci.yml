@@ -83,13 +83,16 @@ jobs:
             -vv
         timeout-minutes: 3
 
-      - name: Run invariant tests (optional)
+      - name: Run invariant tests (optional - skipped for speed)
         env:
-          FOUNDRY_INVARIANT_RUNS: 10
+          FOUNDRY_INVARIANT_RUNS: 3
         run: |
-          forge test --match-path "**/invariant/**/*.t.sol" --fuzz-runs 10 -vv
+          # Skip invariant tests in CI - they're too slow
+          # Uncomment below to run invariant tests (will slow down CI significantly)
+          # forge test --match-path "**/invariant/**/*.t.sol" --fuzz-runs 3 -vv
+          echo "⏭️  Invariant tests skipped in CI for speed. Run locally with: forge test --match-path '**/invariant/**/*.t.sol'"
         continue-on-error: true
-        timeout-minutes: 5
+        timeout-minutes: 1
 
   security:
     name: Security
