@@ -76,7 +76,12 @@ contract MockWorkflow is IFlashloanWorkflow {
  * @notice Mock workflow that always fails
  */
 contract FailingWorkflow is IFlashloanWorkflow {
-    function executeWorkflow(address, uint256, bytes calldata) external pure override returns (bool success, uint256 amountOut) {
+    function executeWorkflow(address, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bool success, uint256 amountOut)
+    {
         return (false, 0);
     }
 }

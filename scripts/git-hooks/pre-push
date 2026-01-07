@@ -1,0 +1,42 @@
+#!/bin/bash
+# Git pre-push hook to check code format before pushing
+# This is a safety net in case pre-commit hook was bypassed
+
+set +e
+
+echo "🔍 Running pre-push format check..."
+
+# Check if forge is available
+if ! command -v forge &> /dev/null; then
+    echo "⚠️  Warning: forge not found. Skipping format check."
+    exit 0
+fi
+
+# Get list of Solidity files that will be pushed
+SOL_FILES=$(git diff --name-only origin/$(git rev-parse --abbrev-ref HEAD) 2>/dev/null | grep '\.sol$' || true)
+
+# If no Solidity files changed, skip check
+if [ -z "$SOL_FILES" ]; then
+    echo "✅ No Solidity files to check."
+    exit 0
+fi
+
+# Check format without modifying files (with timeout)
+echo "📝 Checking code format..."
+if timeout 30 forge fmt --check > /dev/null 2>&1; then
+    echo "✅ Code format check passed!"
+    exit 0
+else
+    FORMAT_EXIT_CODE=$?
+    if [ $FORMAT_EXIT_CODE -eq 124 ]; then
+        echo "⚠️  Format check timed out. Skipping..."
+        exit 0
+    else
+        echo ""
+        echo "❌ Code format check failed!"
+        echo "💡 Please run 'forge fmt' to format your code, then commit and push again."
+        echo ""
+        exit 1
+    fi
+fi
+

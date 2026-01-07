@@ -110,4 +110,3 @@ contract MultipleWorkflowTest is Test {
         assertGt(userBalanceAfter, userBalanceBefore, "User should receive profit");
     }
 }
-

@@ -121,7 +121,7 @@ contract IntegrationTest is Test {
     function test_Multiple_Flashloans_Sequential() public {
         // Test sequential execution of AAVE and Uniswap flashloans
         // This simulates arbitrage opportunities across different protocols
-        
+
         // Create workflow for Uniswap that returns token1 (repayment token)
         // Use higher profit margin (2%) to ensure enough profit after all fees
         MockWorkflow workflowToken1 = new MockWorkflow(address(token1), 10200);
@@ -157,7 +157,7 @@ contract IntegrationTest is Test {
         // AAVE: profit in token (borrowed token)
         uint256 tokenBalanceAfter = token.balanceOf(user);
         assertGt(tokenBalanceAfter, tokenBalanceBefore, "AAVE flashloan should generate profit in token");
-        
+
         // Uniswap: profit in token1 (repayment token)
         uint256 token1BalanceAfter = token1.balanceOf(user);
         assertGt(token1BalanceAfter, token1BalanceBefore, "Uniswap flash swap should generate profit in token1");
@@ -394,7 +394,7 @@ contract IntegrationTest is Test {
         // AAVE: profit in token (borrowed token)
         uint256 tokenBalanceAfter = token.balanceOf(user);
         assertGt(tokenBalanceAfter, tokenBalanceBefore, "AAVE flashloan should generate profit in token");
-        
+
         // Uniswap: profit in token1 (repayment token)
         uint256 token1BalanceAfter = token1.balanceOf(user);
         assertGt(token1BalanceAfter, token1BalanceBefore, "Uniswap flash swap should generate profit in token1");

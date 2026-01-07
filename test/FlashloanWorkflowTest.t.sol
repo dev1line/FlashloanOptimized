@@ -91,7 +91,7 @@ contract FlashloanWorkflowTest is Test {
         uint256 userBalanceAfter = tokenA.balanceOf(user);
         uint256 profit = userBalanceAfter - userBalanceBefore;
         assertGt(profit, 0, "User should receive profit");
-        
+
         // Expected: 1000 * 1.015 = 1015, minus AAVE premium (~9), minus fee, net ~5-6
         assertGt(profit, 0, "Profit should be positive");
     }
@@ -342,4 +342,3 @@ contract FlashloanWorkflowTest is Test {
         vm.stopPrank();
     }
 }
-

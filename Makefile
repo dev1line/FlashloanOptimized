@@ -1,9 +1,15 @@
 .PHONY: install build test test-fuzz test-invariant fmt lint coverage clean slither aderyn gas-report deploy security pre-push ci \
-	docker-build docker-up docker-down docker-shell docker-slither docker-aderyn docker-security docker-test docker-build-contracts docker-clean
+	docker-build docker-up docker-down docker-shell docker-slither docker-aderyn docker-security docker-test docker-build-contracts docker-clean \
+	install-hooks
 
 # Install dependencies
 install:
 	forge install
+
+# Install git hooks for automatic formatting
+install-hooks:
+	@echo "Installing git hooks..."
+	@bash scripts/install-git-hooks.sh
 
 # Build contracts
 build:

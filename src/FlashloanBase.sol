@@ -39,7 +39,14 @@ abstract contract FlashloanBase is
 
     event FeeUpdated(uint256 oldFee, uint256 newFee);
     event MinProfitUpdated(uint256 oldMinProfit, uint256 newMinProfit);
-    event WorkflowExecuted(address indexed workflow, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, bool success);
+    event WorkflowExecuted(
+        address indexed workflow,
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        bool success
+    );
 
     /// @notice Custom errors
     error InvalidAmount();
@@ -189,7 +196,8 @@ abstract contract FlashloanBase is
             }
 
             // Execute workflow
-            (bool success, uint256 amountOut) = _executeWorkflow(workflows[i], currentToken, currentAmount, workflowData[i]);
+            (bool success, uint256 amountOut) =
+                _executeWorkflow(workflows[i], currentToken, currentAmount, workflowData[i]);
 
             if (!success) revert WorkflowExecutionFailed();
 

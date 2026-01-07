@@ -128,7 +128,9 @@ contract UniswapFlashSwapTest is Test {
         workflows[0] = address(workflow);
         bytes[] memory workflowData = new bytes[](1);
         workflowData[0] = abi.encode(address(token1), 0);
-        flashSwap.executeFlashSwap(address(pool), address(token0), address(token1), SWAP_AMOUNT, workflows, workflowData);
+        flashSwap.executeFlashSwap(
+            address(pool), address(token0), address(token1), SWAP_AMOUNT, workflows, workflowData
+        );
     }
 
     function test_ExecuteFlashSwap_RevertsIfInvalidPool() public {
@@ -314,12 +316,7 @@ contract UniswapFlashSwapTest is Test {
         workflowData[0] = abi.encode(address(token1), 0);
         vm.prank(user);
         flashSwap.executeFlashSwap(
-            address(pool),
-            address(token0),
-            address(token1),
-            SWAP_AMOUNT,
-            workflows,
-            workflowData
+            address(pool), address(token0), address(token1), SWAP_AMOUNT, workflows, workflowData
         );
 
         // Check that contract has fee balance

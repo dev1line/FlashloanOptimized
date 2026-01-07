@@ -164,15 +164,15 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
         // For Uniswap: first workflow's tokenIn = tokenReceived (borrowed), last workflow's tokenOut = tokenToPay (repayment)
         address currentToken = tokenReceived;
         uint256 currentAmount = amountReceived;
-        
+
         // Validate first workflow's tokenIn
         if (currentToken != tokenReceived) revert InvalidWorkflowChain();
-        
+
         for (uint256 i = 0; i < workflows.length; i++) {
             // Decode tokenOut from workflow data
             address tokenOut;
             (tokenOut,) = abi.decode(workflowDataBytes[i], (address, uint256));
-            
+
             // Validate last workflow's tokenOut
             if (i == workflows.length - 1) {
                 // Last workflow's tokenOut must equal tokenToPay (repayment token)
@@ -180,18 +180,19 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
                 // But we still validate that the chain ends with the correct repayment token
                 if (tokenOut != tokenToPay) revert InvalidWorkflowChain();
             }
-            
+
             // Execute workflow
-            (bool success, uint256 amountOut) = _executeWorkflow(workflows[i], currentToken, currentAmount, workflowDataBytes[i]);
+            (bool success, uint256 amountOut) =
+                _executeWorkflow(workflows[i], currentToken, currentAmount, workflowDataBytes[i]);
             if (!success) revert WorkflowExecutionFailed();
-            
+
             currentToken = tokenOut;
             currentAmount = amountOut;
         }
-        
+
         // Final token must be tokenToPay (repayment token)
         if (currentToken != tokenToPay) revert InvalidWorkflowChain();
-        
+
         // Check if we have enough tokens to repay
         if (currentAmount < amountToPay) revert InsufficientRepayment();
 

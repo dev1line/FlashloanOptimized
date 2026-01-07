@@ -85,7 +85,21 @@ cd FlashloanOptimized
 
 # Install dependencies (đã được cài qua forge install)
 forge install
+
+# Install git hooks for automatic code formatting (recommended)
+make install-hooks
+# Hoặc chạy trực tiếp:
+# bash scripts/install-git-hooks.sh
 ```
+
+### Git Hooks (Recommended)
+
+Git hooks sẽ tự động format code trước khi commit và push, đảm bảo code luôn đúng format và pass CI/CD checks:
+
+- **pre-commit**: Tự động format code trước khi commit
+- **pre-push**: Kiểm tra format trước khi push (safety net)
+
+Sau khi cài đặt, mỗi lần bạn commit hoặc push, code sẽ được tự động format nếu cần.
 
 ## Deployment
 

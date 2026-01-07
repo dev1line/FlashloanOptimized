@@ -331,7 +331,7 @@ contract AAVEFlashloanTest is Test {
     function testFuzz_ExecuteFlashloan_WorkflowData(bytes memory workflowData) public {
         // Limit workflowData size to prevent excessive gas usage
         if (workflowData.length > 1000) return;
-        
+
         // Skip invalid workflow data (must have at least 32 bytes for address)
         if (workflowData.length < 32) return;
 

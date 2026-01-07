@@ -252,7 +252,7 @@ contract FlashloanCoverageTest is Test {
         // So we test this indirectly - if we try to call it directly, it should revert
         // But currentOperation needs to be set first
         // This is better tested through integration
-        
+
         // For now, test that executeFlashSwap works correctly
         uniswapFlashSwap.executeFlashSwap(
             address(uniswapPool), address(tokenA), address(tokenB), FLASHLOAN_AMOUNT, workflows, workflowData
@@ -524,4 +524,3 @@ contract FlashloanCoverageTest is Test {
         vm.stopPrank();
     }
 }
-
