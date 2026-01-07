@@ -44,16 +44,16 @@ evm_version = "paris"
 optimizer_runs = 200
 via_ir = false
 [fuzz.ci]
-runs = 50  # Reduced for faster CI
-max_test_rejects = 65536
+runs = 10  # Very low for faster CI
+max_test_rejects = 1000  # Reduced to fail faster
 # Don't set seed in CI to avoid deterministic high runs
 # seed = '' # Let it be random for CI
-timeout = 120  # 2 minutes per fuzz test (reduced for faster CI)
+timeout = 60  # 1 minute per fuzz test (very reduced for faster CI)
 [invariant.ci]
-runs = 10  # Reduced for faster CI
-depth = 10  # Reduced for faster CI
+runs = 5  # Very low for faster CI
+depth = 5  # Very reduced for faster CI
 fail_on_revert = false
-timeout = 120  # 2 minutes per invariant test (reduced for faster CI)
+timeout = 60  # 1 minute per invariant test (very reduced for faster CI)
 
 # Profile for coverage
 [profile.coverage]

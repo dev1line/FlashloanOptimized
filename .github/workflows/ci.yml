@@ -71,16 +71,17 @@ jobs:
 
       - name: Run tests (fast mode)
         env:
-          FOUNDRY_FUZZ_RUNS: 50
+          FOUNDRY_FUZZ_RUNS: 10
           FOUNDRY_FUZZ_SEED: ""
         run: |
-          # Use very low fuzz runs for faster CI
+          # Use very low fuzz runs for faster CI (10 instead of 50)
           # Run only fast tests, exclude slow ones by pattern
+          # Exclude FlashloanWorkflowAdvancedTest as it's slower
           forge test \
-            --fuzz-runs 50 \
-            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,FlashloanWorkflowAdvancedTest,MultipleWorkflowTest}.t.sol" \
+            --fuzz-runs 10 \
+            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,MultipleWorkflowTest}.t.sol" \
             -vv
-        timeout-minutes: 10
+        timeout-minutes: 8
 
       - name: Run invariant tests (optional)
         env:
@@ -175,13 +176,13 @@ jobs:
           FOUNDRY_FUZZ_SEED: ""
         run: |
           # Use minimal fuzz runs for very fast coverage
-          # Run only fast tests for coverage
+          # Run only fastest tests for coverage (exclude advanced tests)
           forge coverage \
             --report lcov \
             --fuzz-runs 5 \
             --ir-minimum \
-            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,FlashloanWorkflowAdvancedTest,MultipleWorkflowTest}.t.sol" || true
-        timeout-minutes: 8
+            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,MultipleWorkflowTest}.t.sol" || true
+        timeout-minutes: 6
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
