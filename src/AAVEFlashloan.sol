@@ -19,8 +19,8 @@ contract AAVEFlashloan is FlashloanBase, IFlashLoanReceiver {
         address user;
         address token;
         uint256 amount;
-        address workflow;
-        bytes workflowData;
+        address[] workflows;
+        bytes[] workflowData;
         bool executed;
     }
 
@@ -45,25 +45,30 @@ contract AAVEFlashloan is FlashloanBase, IFlashLoanReceiver {
     }
 
     /**
-     * @notice Execute flashloan from AAVE
+     * @notice Execute flashloan from AAVE with multiple workflows
      * @param token The token to borrow
      * @param amount The amount to borrow
-     * @param workflow The workflow contract to execute
-     * @param workflowData Custom data for the workflow
+     * @param workflows Array of workflow contracts to execute in sequence
+     * @param workflowData Array of custom data for each workflow
+     * @dev First workflow's tokenIn must be the borrowed token
+     * @dev Last workflow's tokenOut must be the borrowed token (for repayment)
      */
-    function executeFlashloan(address token, uint256 amount, address workflow, bytes calldata workflowData)
-        external
-        nonReentrant
-        whenNotPaused
-    {
+    function executeFlashloan(
+        address token,
+        uint256 amount,
+        address[] calldata workflows,
+        bytes[] calldata workflowData
+    ) external nonReentrant whenNotPaused {
         _validateFlashloanParams(token, amount);
+        if (workflows.length == 0) revert InvalidWorkflow();
+        if (workflows.length != workflowData.length) revert InvalidWorkflow();
 
         // Store operation data
         currentOperation = FlashloanOperation({
             user: msg.sender,
             token: token,
             amount: amount,
-            workflow: workflow,
+            workflows: workflows,
             workflowData: workflowData,
             executed: false
         });
@@ -78,7 +83,7 @@ contract AAVEFlashloan is FlashloanBase, IFlashLoanReceiver {
         uint256[] memory modes = new uint256[](1);
         modes[0] = 0; // Don't open debt, just revert if funds can't be transferred
 
-        bytes memory params = abi.encode(workflow, workflowData);
+        bytes memory params = abi.encode(workflows, workflowData);
 
         // Execute flashloan
         pool.flashLoan(
@@ -125,36 +130,52 @@ contract AAVEFlashloan is FlashloanBase, IFlashLoanReceiver {
         currentOperation.executed = true;
 
         // Decode workflow parameters
-        (address workflow, bytes memory workflowDataBytes) = abi.decode(params, (address, bytes));
+        (address[] memory workflows, bytes[] memory workflowDataBytes) = abi.decode(params, (address[], bytes[]));
 
-        // Execute custom workflow
-        (bool workflowSuccess, uint256 profit) = _executeWorkflow(workflow, token, amount, workflowDataBytes);
+        // Execute workflow chain
+        uint256 finalAmount = _executeWorkflowChain(workflows, workflowDataBytes, token, amount);
+
+        // Calculate profit: finalAmount - original amount
+        // Profit must cover: premium (AAVE fee) + our fee + min profit
+        uint256 profit = finalAmount > amount ? finalAmount - amount : 0;
 
         // Calculate total amount to repay (principal + premium)
         uint256 totalRepayAmount = amount + premium;
 
-        // Calculate fee
+        // Check if we have enough to repay
+        if (finalAmount < totalRepayAmount) revert InsufficientProfit();
+
+        // Calculate fee on profit
         uint256 fee = _calculateFee(profit);
 
-        // Validate profit after fees
+        // Calculate net profit after fees
         uint256 netProfit = profit > fee ? profit - fee : 0;
+
+        // Validate profit after fees and premium
+        // Net profit must be at least minProfitBps of the original amount
         _validateProfit(netProfit, amount);
 
         // Approve repayment to AAVE Pool
         IERC20(token).approve(address(pool), totalRepayAmount);
 
+        // Calculate remaining amount after repayment
+        uint256 remaining = finalAmount - totalRepayAmount;
+
         // Transfer profit (after fee) to user if any
-        if (netProfit > 0) {
-            IERC20(token).transfer(currentOperation.user, netProfit);
+        if (remaining > fee) {
+            uint256 userProfit = remaining - fee;
+            if (userProfit > 0) {
+                IERC20(token).transfer(currentOperation.user, userProfit);
+            }
         }
 
         // Transfer fee to contract
-        if (fee > 0) {
+        if (fee > 0 && remaining >= fee) {
             IERC20(token).transfer(address(this), fee);
         }
 
         // Emit event
-        emit FlashloanExecuted(currentOperation.user, token, amount, workflowSuccess, netProfit, fee);
+        emit FlashloanExecuted(currentOperation.user, token, amount, true, netProfit, fee);
 
         return true;
     }

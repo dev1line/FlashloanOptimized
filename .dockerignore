@@ -1,0 +1,43 @@
+# Build artifacts
+out/
+cache/
+*.solc-select/
+
+# Dependencies (sẽ được install trong container)
+lib/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test artifacts
+coverage/
+lcov.info
+
+# Reports
+slither-report.json
+*.log
+
+# Environment files
+.env
+.env.local
+
+# Node modules (nếu có)
+node_modules/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+

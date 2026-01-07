@@ -214,6 +214,180 @@ forge test --gas-report
 make ci
 ```
 
+## Makefile Commands
+
+Dự án cung cấp các lệnh Makefile tiện lợi để phát triển và kiểm tra:
+
+### Cài đặt và Build
+
+```bash
+# Cài đặt dependencies
+make install
+
+# Build contracts
+make build
+```
+
+### Formatting và Linting
+
+```bash
+# Format code
+make fmt
+
+# Kiểm tra format (dùng trong CI)
+make lint
+```
+
+### Testing
+
+```bash
+# Chạy tất cả tests
+make test
+
+# Chạy fuzz tests với 1000 runs
+make test-fuzz
+
+# Chạy invariant tests
+make test-invariant
+
+# Tạo gas report
+make gas-report
+```
+
+### Security Checks
+
+**Quan trọng**: Chạy các lệnh security trước khi push code!
+
+```bash
+# Chạy Slither (static analysis)
+make slither
+
+# Chạy Aderyn (security audit tool)
+make aderyn
+
+# Chạy tất cả security checks (Slither + Aderyn)
+make security
+```
+
+**Cài đặt công cụ security** (chỉ cần làm một lần):
+
+```bash
+# Cài đặt Slither
+pip install slither-analyzer solc-select
+solc-select install 0.8.22
+solc-select use 0.8.22
+
+# Cài đặt Aderyn (yêu cầu Rust)
+cargo install --git https://github.com/Cyfrin/aderyn aderyn
+```
+
+### Docker Setup (Khuyến nghị cho Audit)
+
+Dự án cung cấp Docker setup để đóng gói tất cả công cụ audit (Foundry, Slither, Aderyn) trong một container, giúp đảm bảo môi trường nhất quán và dễ dàng chạy audit.
+
+#### Cài đặt và Sử dụng Docker
+
+```bash
+# Build Docker image (chứa Foundry, Slither, Aderyn)
+make docker-build
+
+# Khởi động container
+make docker-up
+
+# Mở shell trong container
+make docker-shell
+
+# Dừng container
+make docker-down
+```
+
+#### Chạy Audit trong Docker
+
+```bash
+# Chạy Slither trong Docker
+make docker-slither
+
+# Chạy Aderyn trong Docker
+make docker-aderyn
+
+# Chạy tất cả security checks trong Docker
+make docker-security
+
+# Build contracts trong Docker
+make docker-build-contracts
+
+# Chạy tests trong Docker
+make docker-test
+
+# Chạy fuzz tests trong Docker
+make docker-test-fuzz
+
+# Chạy invariant tests trong Docker
+make docker-test-invariant
+
+# Chạy full CI trong Docker
+make docker-ci
+```
+
+#### Lợi ích của Docker
+
+- ✅ **Môi trường nhất quán**: Tất cả công cụ được cài đặt với version cố định
+- ✅ **Không cần cài đặt local**: Không cần cài Python, Rust, Slither, Aderyn trên máy local
+- ✅ **Dễ dàng chia sẻ**: Team members có thể chạy audit với cùng môi trường
+- ✅ **Tách biệt môi trường**: Không ảnh hưởng đến hệ thống local
+
+#### Làm việc với Docker Container
+
+```bash
+# Vào shell trong container để chạy lệnh tùy chỉnh
+make docker-shell
+
+# Trong container, bạn có thể chạy bất kỳ lệnh nào:
+# forge build
+# forge test
+# slither .
+# aderyn .
+```
+
+#### Cleanup Docker
+
+```bash
+# Xóa container và volumes
+make docker-clean
+```
+
+### Pre-push Checks
+
+**Khuyến nghị**: Luôn chạy lệnh này trước khi push code để đảm bảo mọi thứ hoạt động:
+
+```bash
+# Chạy tất cả checks: lint, build, test, security
+make pre-push
+```
+
+Lệnh này sẽ:
+
+- ✅ Kiểm tra format code
+- ✅ Build contracts
+- ✅ Chạy tests
+- ✅ Chạy security checks (Slither + Aderyn)
+
+### Full CI Check
+
+```bash
+# Chạy tất cả checks như trong CI/CD
+make ci
+```
+
+Bao gồm: lint, build, test, test-invariant, security, gas-report
+
+### Cleanup
+
+```bash
+# Xóa build artifacts
+make clean
+```
+
 ### Test Coverage
 
 - ✅ 85+ tests covering all functionality

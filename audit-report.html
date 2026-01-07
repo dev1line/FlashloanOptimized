@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Report - FlashloanOptimized</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header .meta {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card.high .number { color: #dc3545; }
+        .stat-card.medium .number { color: #fd7e14; }
+        .stat-card.low .number { color: #ffc107; }
+        .stat-card.auto-fixable .number { color: #28a745; }
+        .stat-card.total .number { color: #007bff; }
+        
+        .filters {
+            padding: 20px 30px;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .filter-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .issues-container {
+            padding: 30px;
+        }
+        
+        .issue-card {
+            background: white;
+            border-left: 4px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .issue-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+        
+        .issue-card.high { border-left-color: #dc3545; }
+        .issue-card.medium { border-left-color: #fd7e14; }
+        .issue-card.low { border-left-color: #ffc107; }
+        .issue-card.informational { border-left-color: #17a2b8; }
+        
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        
+        .issue-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #212529;
+            flex: 1;
+        }
+        
+        .severity-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 15px;
+        }
+        
+        .severity-badge.high { background: #dc3545; color: white; }
+        .severity-badge.medium { background: #fd7e14; color: white; }
+        .severity-badge.low { background: #ffc107; color: #212529; }
+        .severity-badge.informational { background: #17a2b8; color: white; }
+        
+        .auto-fix-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .issue-meta {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        
+        .issue-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .issue-description {
+            color: #495057;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .code-snippet {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+        
+        .fix-suggestion {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        
+        .fix-suggestion h4 {
+            color: #007bff;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .fix-suggestion p {
+            color: #495057;
+            line-height: 1.6;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        @media (max-width: 768px) {
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .filter-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .issue-header {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Audit Report</h1>
+            <div class="meta">Generated: 2026-01-07 11:52:26</div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card total">
+                <div class="number">74</div>
+                <div>Total Issues</div>
+            </div>
+            <div class="stat-card high">
+                <div class="number">9</div>
+                <div>High</div>
+            </div>
+            <div class="stat-card medium">
+                <div class="number">0</div>
+                <div>Medium</div>
+            </div>
+            <div class="stat-card low">
+                <div class="number">65</div>
+                <div>Low</div>
+            </div>
+            <div class="stat-card auto-fixable">
+                <div class="number">17</div>
+                <div>Auto-fixable</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>Severity:</label>
+                <button class="filter-btn active" data-filter="all" onclick="filterIssues('all')">All</button>
+                <button class="filter-btn" data-filter="HIGH" onclick="filterIssues('HIGH')">High</button>
+                <button class="filter-btn" data-filter="MEDIUM" onclick="filterIssues('MEDIUM')">Medium</button>
+                <button class="filter-btn" data-filter="LOW" onclick="filterIssues('LOW')">Low</button>
+            </div>
+            
+            <div class="filter-group">
+                <label>Type:</label>
+                <button class="filter-btn active" data-filter-type="all" onclick="filterByType('all')">All</button>
+                <button class="filter-btn" data-filter-type="auto-fixable" onclick="filterByType('auto-fixable')">Auto-fixable</button>
+                <button class="filter-btn" data-filter-type="manual" onclick="filterByType('manual')">Manual</button>
+            </div>
+            
+            <input type="text" class="search-box" placeholder="🔍 Search by file, title, or description..." oninput="searchIssues(this.value)">
+        </div>
+        
+        <div class="issues-container" id="issuesContainer">
+            <!-- Issues will be rendered here -->
+        </div>
+    </div>
+    
+    <script>
+        const issues = [
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 144,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 148,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 153,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/FlashloanBase.sol",
+    "line": 172,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 93,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 154,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 187,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 190,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "HIGH",
+    "title": "H-1: Return value of the function call is not checked.",
+    "description": "Function returns a value but it is ignored.",
+    "file": "src/examples/SimpleSwapWorkflow.sol",
+    "line": 41,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Use SafeERC20 library from OpenZeppelin or check return values explicitly"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 166,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 75,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 86,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 95,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 102,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 161,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 168,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/FlashloanBase.sol",
+    "line": 179,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-1: Centralization Risk for trusted owners",
+    "description": "Contracts have owners with privileged rights to perform admin tasks and need to be trusted to not perform malicious updates or drain funds.",
+    "file": "src/utils/OwnableUpgradeable.sol",
+    "line": 56,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Document owner privileges, consider multi-sig, or implement timelock"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 144,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 148,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 153,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/FlashloanBase.sol",
+    "line": 172,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 154,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 187,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 190,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-2: Unsafe ERC20 Operations should not be used",
+    "description": "ERC20 functions may not behave as expected. For example: return values are not always meaningful. It is recommended to use OpenZeppelin's SafeERC20 library.",
+    "file": "src/examples/SimpleSwapWorkflow.sol",
+    "line": 41,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Migrate to SafeERC20 library from OpenZeppelin contracts"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/FlashloanBase.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/examples/SimpleSwapWorkflow.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/interfaces/IERC20.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/interfaces/IFlashLoanReceiver.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/interfaces/IFlashloanWorkflow.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/interfaces/IPool.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/interfaces/IUniswapV3Pool.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/interfaces/IUniswapV3SwapCallback.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/utils/OwnableUpgradeable.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/utils/PausableUpgradeable.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-3: Solidity pragma should be specific, not wide",
+    "description": "Consider using a specific version of Solidity in your contracts instead of a wide version. For example, instead of `pragma solidity ^0.8.0;`, use `pragma solidity 0.8.0;`",
+    "file": "src/utils/ReentrancyGuardUpgradeable.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Consider using specific version instead of ^ (e.g., 0.8.22 instead of ^0.8.22)"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-4: Missing checks for `address(0)` when assigning values to address state variables",
+    "description": "Check for `address(0)` when assigning values to address state variables.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 44,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Add require(_addr != address(0), 'Invalid address') check before assignment"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-4: Missing checks for `address(0)` when assigning values to address state variables",
+    "description": "Check for `address(0)` when assigning values to address state variables.",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 167,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Add require(_addr != address(0), 'Invalid address') check before assignment"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-4: Missing checks for `address(0)` when assigning values to address state variables",
+    "description": "Check for `address(0)` when assigning values to address state variables.",
+    "file": "src/examples/SimpleSwapWorkflow.sol",
+    "line": 21,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Add require(_addr != address(0), 'Invalid address') check before assignment"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-4: Missing checks for `address(0)` when assigning values to address state variables",
+    "description": "Check for `address(0)` when assigning values to address state variables.",
+    "file": "src/utils/OwnableUpgradeable.sol",
+    "line": 69,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Add require(_addr != address(0), 'Invalid address') check before assignment"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-5: Define and use `constant` variables instead of using literals",
+    "description": "If the same constant literal value is used multiple times, create a constant state variable and reference it throughout the contract.",
+    "file": "src/FlashloanBase.sol",
+    "line": 135,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Create constant variable BPS_DENOMINATOR = 1e4 and use it instead of 10000"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-5: Define and use `constant` variables instead of using literals",
+    "description": "If the same constant literal value is used multiple times, create a constant state variable and reference it throughout the contract.",
+    "file": "src/FlashloanBase.sol",
+    "line": 154,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Create constant variable BPS_DENOMINATOR = 1e4 and use it instead of 10000"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/FlashloanBase.sol",
+    "line": 36,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/FlashloanBase.sol",
+    "line": 40,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/FlashloanBase.sol",
+    "line": 41,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/FlashloanBase.sol",
+    "line": 42,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/examples/SimpleSwapWorkflow.sol",
+    "line": 18,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/interfaces/IERC20.sol",
+    "line": 16,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/interfaces/IERC20.sol",
+    "line": 17,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/utils/PausableUpgradeable.sol",
+    "line": 16,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-6: Event is missing `indexed` fields",
+    "description": "Index event fields make the field more quickly accessible to off-chain tools that parse events. However, note that each index field costs extra gas during emission, so it's not necessarily best to ind",
+    "file": "src/utils/PausableUpgradeable.sol",
+    "line": 17,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Add 'indexed' keyword to event parameters for better off-chain indexing"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/AAVEFlashloan.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/FlashloanBase.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/UniswapFlashSwap.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/examples/SimpleSwapWorkflow.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/interfaces/IERC20.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/interfaces/IFlashLoanReceiver.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/interfaces/IFlashloanWorkflow.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/interfaces/IPool.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/interfaces/IUniswapV3Pool.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/interfaces/IUniswapV3SwapCallback.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/utils/OwnableUpgradeable.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/utils/PausableUpgradeable.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-7: PUSH0 is not supported by all chains",
+    "description": "Solc compiler version 0.8.20 switches the default target EVM version to Shanghai, which means that the generated bytecode will include PUSH0 opcodes. Be sure to select the appropriate EVM version in c",
+    "file": "src/utils/ReentrancyGuardUpgradeable.sol",
+    "line": 2,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-8: Modifiers invoked only once can be shoe-horned into the function",
+    "description": "",
+    "file": "src/utils/PausableUpgradeable.sol",
+    "line": 41,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-9: Empty Block",
+    "description": "Consider removing empty blocks.",
+    "file": "src/FlashloanBase.sol",
+    "line": 161,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-10: Large literal values multiples of 10000 can be replaced with scientific notation",
+    "description": "Use `e` notation, for example: `1e18`, instead of its full numeric value.",
+    "file": "src/FlashloanBase.sol",
+    "line": 135,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Replace 10000 with 1e4 (scientific notation) or use BPS_DENOMINATOR constant"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-10: Large literal values multiples of 10000 can be replaced with scientific notation",
+    "description": "Use `e` notation, for example: `1e18`, instead of its full numeric value.",
+    "file": "src/FlashloanBase.sol",
+    "line": 154,
+    "code_snippet": null,
+    "auto_fixable": true,
+    "fix_suggestion": "Replace 10000 with 1e4 (scientific notation) or use BPS_DENOMINATOR constant"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-11: Unused Custom Error",
+    "description": "it is recommended that the definition be removed when custom error is unused",
+    "file": "src/FlashloanBase.sol",
+    "line": 49,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-11: Unused Custom Error",
+    "description": "it is recommended that the definition be removed when custom error is unused",
+    "file": "src/FlashloanBase.sol",
+    "line": 50,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  },
+  {
+    "severity": "LOW",
+    "title": "L-11: Unused Custom Error",
+    "description": "it is recommended that the definition be removed when custom error is unused",
+    "file": "src/FlashloanBase.sol",
+    "line": 53,
+    "code_snippet": null,
+    "auto_fixable": false,
+    "fix_suggestion": "Review and fix manually based on best practices"
+  }
+];
+        let filteredIssues = issues;
+        let currentSeverityFilter = 'all';
+        let currentTypeFilter = 'all';
+        
+        function renderIssues() {
+            const container = document.getElementById('issuesContainer');
+            
+            if (filteredIssues.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <h2>No issues found</h2>
+                        <p>Try adjusting your filters</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filteredIssues.map(issue => {
+                const severityClass = issue.severity.toLowerCase();
+                return `
+                    <div class="issue-card ${severityClass}" data-severity="${issue.severity}" data-auto-fixable="${issue.auto_fixable}">
+                        <div class="issue-header">
+                            <div class="issue-title">
+                                ${issue.title}
+                                ${issue.auto_fixable ? '<span class="auto-fix-badge">Auto-fixable</span>' : ''}
+                            </div>
+                            <span class="severity-badge ${severityClass}">${issue.severity}</span>
+                        </div>
+                        <div class="issue-meta">
+                            <span>📁 <strong>File:</strong> ${issue.file}</span>
+                            ${issue.line ? `<span>📍 <strong>Line:</strong> ${issue.line}</span>` : ''}
+                        </div>
+                        <div class="issue-description">${issue.description}</div>
+                        ${issue.code_snippet ? `
+                            <div class="code-snippet">
+                                <pre><code>${escapeHtml(issue.code_snippet)}</code></pre>
+                            </div>
+                        ` : ''}
+                        ${issue.fix_suggestion ? `
+                            <div class="fix-suggestion">
+                                <h4>💡 Fix Suggestion</h4>
+                                <p>${issue.fix_suggestion}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function filterIssues(severity) {
+            currentSeverityFilter = severity;
+            document.querySelectorAll('[data-filter]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === severity);
+            });
+            applyFilters();
+        }
+        
+        function filterByType(type) {
+            currentTypeFilter = type;
+            document.querySelectorAll('[data-filter-type]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filterType === type);
+            });
+            applyFilters();
+        }
+        
+        function searchIssues(query) {
+            const searchTerm = query.toLowerCase();
+            applyFilters(searchTerm);
+        }
+        
+        function applyFilters(searchTerm = '') {
+            filteredIssues = issues.filter(issue => {
+                // Severity filter
+                if (currentSeverityFilter !== 'all' && issue.severity !== currentSeverityFilter) {
+                    return false;
+                }
+                
+                // Type filter
+                if (currentTypeFilter === 'auto-fixable' && !issue.auto_fixable) {
+                    return false;
+                }
+                if (currentTypeFilter === 'manual' && issue.auto_fixable) {
+                    return false;
+                }
+                
+                // Search filter
+                if (searchTerm) {
+                    const searchable = `${issue.title} ${issue.description} ${issue.file}`.toLowerCase();
+                    if (!searchable.includes(searchTerm)) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            renderIssues();
+        }
+        
+        // Initial render
+        renderIssues();
+    </script>
+</body>
+</html>

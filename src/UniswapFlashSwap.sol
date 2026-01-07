@@ -18,8 +18,8 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
         address tokenOut;
         uint256 amountIn;
         address pool;
-        address workflow;
-        bytes workflowData;
+        address[] workflows;
+        bytes[] workflowData;
         bool executed;
     }
 
@@ -44,24 +44,28 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
     }
 
     /**
-     * @notice Execute flash swap from Uniswap V3
+     * @notice Execute flash swap from Uniswap V3 with multiple workflows
      * @param pool The Uniswap V3 pool address
      * @param tokenIn The token to receive (flashloan)
      * @param tokenOut The token to pay back
      * @param amountIn The amount of tokenIn to receive
-     * @param workflow The workflow contract to execute
-     * @param workflowData Custom data for the workflow
+     * @param workflows Array of workflow contracts to execute in sequence
+     * @param workflowData Array of custom data for each workflow
+     * @dev First workflow's tokenIn must be the borrowed token (tokenIn)
+     * @dev Last workflow's tokenOut must be the repayment token (tokenOut)
      */
     function executeFlashSwap(
         address pool,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
-        address workflow,
-        bytes calldata workflowData
+        address[] calldata workflows,
+        bytes[] calldata workflowData
     ) external nonReentrant whenNotPaused {
         _validateFlashloanParams(tokenIn, amountIn);
         if (pool == address(0)) revert InvalidPool();
+        if (workflows.length == 0) revert InvalidWorkflow();
+        if (workflows.length != workflowData.length) revert InvalidWorkflow();
 
         IUniswapV3Pool poolContract = IUniswapV3Pool(pool);
 
@@ -80,7 +84,7 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
             tokenOut: tokenOut,
             amountIn: amountIn,
             pool: pool,
-            workflow: workflow,
+            workflows: workflows,
             workflowData: workflowData,
             executed: false
         });
@@ -95,7 +99,7 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
             zeroForOne,
             -int256(amountIn),
             zeroForOne ? 4295128739 : 1461446703485210103287273052203988822378723970342, // Max price
-            abi.encode(workflow, workflowData)
+            abi.encode(workflows, workflowData)
         );
 
         // Clear operation data
@@ -154,46 +158,75 @@ contract UniswapFlashSwap is FlashloanBase, IUniswapV3SwapCallback {
         IERC20(tokenToPay).approve(currentOperation.pool, type(uint256).max);
 
         // Decode workflow parameters
-        (address workflow, bytes memory workflowDataBytes) = abi.decode(data, (address, bytes));
+        (address[] memory workflows, bytes[] memory workflowDataBytes) = abi.decode(data, (address[], bytes[]));
 
-        // Execute custom workflow
-        (bool workflowSuccess, uint256 profit) =
-            _executeWorkflow(workflow, tokenReceived, amountReceived, workflowDataBytes);
+        // Execute workflows in sequence
+        // For Uniswap: first workflow's tokenIn = tokenReceived (borrowed), last workflow's tokenOut = tokenToPay (repayment)
+        address currentToken = tokenReceived;
+        uint256 currentAmount = amountReceived;
+        
+        // Validate first workflow's tokenIn
+        if (currentToken != tokenReceived) revert InvalidWorkflowChain();
+        
+        for (uint256 i = 0; i < workflows.length; i++) {
+            // Decode tokenOut from workflow data
+            address tokenOut;
+            (tokenOut,) = abi.decode(workflowDataBytes[i], (address, uint256));
+            
+            // Validate last workflow's tokenOut
+            if (i == workflows.length - 1) {
+                // Last workflow's tokenOut must equal tokenToPay (repayment token)
+                // Note: For Uniswap, tokenToPay may differ from tokenReceived
+                // But we still validate that the chain ends with the correct repayment token
+                if (tokenOut != tokenToPay) revert InvalidWorkflowChain();
+            }
+            
+            // Execute workflow
+            (bool success, uint256 amountOut) = _executeWorkflow(workflows[i], currentToken, currentAmount, workflowDataBytes[i]);
+            if (!success) revert WorkflowExecutionFailed();
+            
+            currentToken = tokenOut;
+            currentAmount = amountOut;
+        }
+        
+        // Final token must be tokenToPay (repayment token)
+        if (currentToken != tokenToPay) revert InvalidWorkflowChain();
+        
+        // Check if we have enough tokens to repay
+        if (currentAmount < amountToPay) revert InsufficientRepayment();
 
-        // Calculate fee
+        // Process profit and transfers
+        _processUniswapProfitAndEmit(currentAmount, amountToPay, amountReceived, tokenReceived, tokenToPay);
+    }
+
+    /**
+     * @notice Process profit calculation and transfers for Uniswap flash swap
+     * @param finalAmount Final amount of tokenToPay after workflows
+     * @param amountToPay Amount needed to repay the pool
+     * @param amountReceived Original amount received from pool
+     * @param tokenReceived Token received from pool
+     * @param tokenToPay Token to pay back to pool
+     */
+    function _processUniswapProfitAndEmit(
+        uint256 finalAmount,
+        uint256 amountToPay,
+        uint256 amountReceived,
+        address tokenReceived,
+        address tokenToPay
+    ) internal {
+        uint256 profit = finalAmount - amountToPay;
         uint256 fee = _calculateFee(profit);
-
-        // Calculate net profit
         uint256 netProfit = profit > fee ? profit - fee : 0;
-
-        // Validate profit
         _validateProfit(netProfit, amountReceived);
 
-        // We need to pay back the pool with tokenToPay
-        // The amount to pay is amountToPay
-        // We should have enough from the workflow execution
-
-        // Check if we have enough tokens to repay
-        if (IERC20(tokenToPay).balanceOf(address(this)) < amountToPay) revert InsufficientRepayment();
-
-        // Transfer remaining profit (in tokenReceived) to user if any
-        uint256 remainingBalance = IERC20(tokenReceived).balanceOf(address(this));
         address user = currentOperation.user;
-        if (remainingBalance > 0) {
-            // Keep fee in contract, send rest to user
-            if (fee > 0 && remainingBalance >= fee) {
-                uint256 userProfit = remainingBalance - fee;
-                if (userProfit > 0) {
-                    IERC20(tokenReceived).transfer(user, userProfit);
-                }
-            } else {
-                IERC20(tokenReceived).transfer(user, remainingBalance);
+        if (profit > fee) {
+            IERC20(tokenToPay).transfer(user, profit - fee);
+            if (fee > 0) {
+                IERC20(tokenToPay).transfer(address(this), fee);
             }
         }
 
-        // Emit event (using local variables to reduce stack depth)
-        address emitToken = tokenReceived;
-        uint256 emitAmount = amountReceived;
-        emit FlashloanExecuted(user, emitToken, emitAmount, workflowSuccess, netProfit, fee);
+        emit FlashloanExecuted(user, tokenReceived, amountReceived, true, netProfit, fee);
     }
 }

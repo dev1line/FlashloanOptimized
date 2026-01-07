@@ -232,7 +232,11 @@ contract Handler is Test {
         if (flashloan.paused()) return;
 
         // Execute flashloan
-        try flashloan.executeFlashloan(address(token), amount, address(tempWorkflow), abi.encode(address(token))) {
+        address[] memory workflows = new address[](1);
+        workflows[0] = address(tempWorkflow);
+        bytes[] memory workflowData = new bytes[](1);
+        workflowData[0] = abi.encode(address(token), 0);
+        try flashloan.executeFlashloan(address(token), amount, workflows, workflowData) {
             // Update ghost variables on success
             ghost_totalFlashloans++;
 
@@ -277,13 +281,17 @@ contract Handler is Test {
         if (flashSwap.paused()) return;
 
         // Execute flash swap
+        address[] memory workflows = new address[](1);
+        workflows[0] = address(tempWorkflow);
+        bytes[] memory workflowData = new bytes[](1);
+        workflowData[0] = abi.encode(zeroForOne ? address(token1) : address(token0), 0);
         try flashSwap.executeFlashSwap(
             address(uniswapPool),
             zeroForOne ? address(token0) : address(token1),
             zeroForOne ? address(token1) : address(token0),
             amount,
-            address(tempWorkflow),
-            abi.encode(address(token1))
+            workflows,
+            workflowData
         ) {
             // Update ghost variables
             ghost_totalFlashSwaps++;
@@ -312,9 +320,8 @@ contract Handler is Test {
 
         vm.startPrank(flashloan.owner());
         try flashloan.setFee(feeBps) {
-        // Success
-        }
-            catch {
+            // Success
+        } catch {
             // May revert if invalid
         }
         vm.stopPrank();
@@ -328,9 +335,8 @@ contract Handler is Test {
 
         vm.startPrank(flashloan.owner());
         try flashloan.setMinProfit(minProfitBps) {
-        // Success
-        }
-            catch {
+            // Success
+        } catch {
             // May revert
         }
         vm.stopPrank();

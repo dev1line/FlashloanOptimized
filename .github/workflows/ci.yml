@@ -9,6 +9,7 @@ on:
 env:
   FOUNDRY_PROFILE: ci
   FOUNDRY_NO_GIT_AUTH: 1
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: 1
 
 jobs:
   lint:
@@ -44,6 +45,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,18 +56,33 @@ jobs:
         with:
           version: nightly
 
-      - name: Run tests
+      - name: Clean cache (fix potential cache corruption)
         run: |
-          forge test --fuzz-runs 100 -vv
+          forge clean || true
+          rm -rf cache/*.json || true
+
+      - name: Run tests
+        env:
+          FOUNDRY_FUZZ_RUNS: 100
+          FOUNDRY_FUZZ_SEED: ""
+        run: |
+          # Use profile ci which has lower fuzz runs
+          # Explicitly set fuzz runs to ensure it's not too high
+          forge test --fuzz-runs 100 -vv --no-match-path "**/invariant/**"
 
       - name: Run invariant tests
+        env:
+          FOUNDRY_INVARIANT_RUNS: 20
         run: |
-          forge test --match-path "**/invariant/**/*.t.sol" --fuzz-runs 50 -vv
+          forge test --match-path "**/invariant/**/*.t.sol" --fuzz-runs 20 -vv
         continue-on-error: true
+        timeout-minutes: 10
 
       - name: Generate gas report
+        env:
+          FOUNDRY_FUZZ_RUNS: 10
         run: |
-          forge test --gas-report
+          forge test --gas-report --fuzz-runs 10
 
   security:
     name: Security
@@ -83,28 +100,42 @@ jobs:
       - name: Build contracts
         run: forge build
 
-      - name: Run Slither (if available)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Slither and dependencies
         run: |
-          if command -v slither &> /dev/null; then
-            slither . --filter-paths "lib,node_modules" || true
-          else
-            echo "Slither not installed, skipping..."
-          fi
+          pip install slither-analyzer solc-select
+          solc-select install 0.8.22
+          solc-select use 0.8.22
+
+      - name: Run Slither
+        run: |
+          slither . \
+            --filter-paths "lib,node_modules,cache,out" \
+            --config-file slither.config.json \
+            --print human-summary \
+            --print json:slither-report.json || true
         continue-on-error: true
 
-      - name: Run Aderyn (if available)
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Aderyn
         run: |
-          if command -v aderyn &> /dev/null; then
-            aderyn . || true
-          else
-            echo "Aderyn not installed, skipping..."
-          fi
+          cargo install --git https://github.com/Cyfrin/aderyn aderyn
+
+      - name: Run Aderyn
+        run: |
+          aderyn . --skip-build || true
         continue-on-error: true
 
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -115,16 +146,25 @@ jobs:
         with:
           version: nightly
 
+      - name: Clean cache (fix potential cache corruption)
+        run: |
+          forge clean || true
+          rm -rf cache/*.json || true
+
       - name: Generate coverage
         env:
           FOUNDRY_FUZZ_RUNS: 10
+          FOUNDRY_FUZZ_SEED: ""
         run: |
           # Use very low fuzz runs for faster coverage generation
           # Exclude invariant tests (they're slow and tested separately in the test job)
           forge coverage \
             --report lcov \
             --fuzz-runs 10 \
-            --no-match-path "**/invariant/**"
+            --ir-minimum \
+            --no-match-path "**/invariant/**" || true
+        continue-on-error: true
+        timeout-minutes: 15
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3

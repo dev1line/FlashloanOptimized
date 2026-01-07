@@ -22,45 +22,44 @@ contract SimpleSwapWorkflow is IFlashloanWorkflow {
     }
 
     /**
-     * @notice Execute swap workflow
-     * @param token The token received from flashloan
-     * @param amount The amount received
+     * @notice Execute a single swap workflow (tokenIn -> tokenOut)
+     * @param tokenIn The input token address
+     * @param amountIn The amount of input tokens
      * @param data Encoded swap parameters: (address tokenOut, uint256 minAmountOut)
      * @return success Whether the swap succeeded
-     * @return profit The profit made (amountOut - amountIn, simplified)
+     * @return amountOut The amount of output tokens received
      */
-    function executeWorkflow(address token, uint256 amount, bytes calldata data)
+    function executeWorkflow(address tokenIn, uint256 amountIn, bytes calldata data)
         external
         override
-        returns (bool success, uint256 profit)
+        returns (bool success, uint256 amountOut)
     {
         // Decode swap parameters
         (address tokenOut, uint256 minAmountOut) = abi.decode(data, (address, uint256));
 
-        // Approve router to spend tokens
-        IERC20(token).approve(router, amount);
+        // Approve router to spend input tokens
+        IERC20(tokenIn).approve(router, amountIn);
 
         // Execute swap (simplified - in production, use proper DEX router)
         // This is a placeholder - actual implementation depends on the DEX
         (bool swapSuccess, bytes memory returnData) =
-            router.call(abi.encodeWithSelector(SWAP_SELECTOR, token, tokenOut, amount, minAmountOut, address(this)));
+            router.call(abi.encodeWithSelector(SWAP_SELECTOR, tokenIn, tokenOut, amountIn, minAmountOut, address(this)));
 
         if (!swapSuccess) {
             return (false, 0);
         }
 
         // Get amount out (simplified)
-        uint256 amountOut = abi.decode(returnData, (uint256));
+        amountOut = abi.decode(returnData, (uint256));
 
-        // Calculate profit (simplified - in production, account for fees)
-        if (amountOut > amount) {
-            profit = amountOut - amount;
+        // Check if minimum amount out is met
+        if (amountOut >= minAmountOut) {
             success = true;
         } else {
             success = false;
-            profit = 0;
+            amountOut = 0;
         }
 
-        emit SwapExecuted(token, tokenOut, amount, amountOut);
+        emit SwapExecuted(tokenIn, tokenOut, amountIn, amountOut);
     }
 }

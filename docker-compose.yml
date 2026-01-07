@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  flashloan-audit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: flashloan-audit:latest
+    container_name: flashloan-audit
+    volumes:
+      # Mount project directory để có thể sync code changes
+      - .:/workspace
+      # Mount cache để tăng tốc build
+      - foundry-cache:/root/.foundry/cache
+      - cargo-cache:/root/.cargo/registry
+    working_dir: /workspace
+    environment:
+      - FOUNDRY_PROFILE=${FOUNDRY_PROFILE:-default}
+    # Giữ container chạy để có thể exec commands
+    stdin_open: true
+    tty: true
+    # Override command để giữ container running
+    command: tail -f /dev/null
+
+volumes:
+  foundry-cache:
+  cargo-cache:
+

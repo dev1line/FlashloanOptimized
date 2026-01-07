@@ -7,80 +7,62 @@ import "./MockERC20.sol";
 
 /**
  * @title MockWorkflow
- * @notice Mock workflow for testing - simulates profitable trade
+ * @notice Mock workflow for testing - simulates a single token swap
+ * @dev Each workflow performs one swap: tokenIn -> tokenOut
  */
 contract MockWorkflow is IFlashloanWorkflow {
     address public tokenOut;
-    uint256 public profitMultiplier; // Basis points (10000 = 1x, 10100 = 1.01x)
+    uint256 public outputMultiplier; // Basis points (10000 = 1x, 10100 = 1.01x)
 
-    event WorkflowExecuted(address tokenIn, uint256 amountIn, uint256 profit);
+    event WorkflowExecuted(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
 
-    constructor(address _tokenOut, uint256 _profitMultiplier) {
+    constructor(address _tokenOut, uint256 _outputMultiplier) {
         tokenOut = _tokenOut;
-        profitMultiplier = _profitMultiplier;
+        outputMultiplier = _outputMultiplier;
     }
 
-    function executeWorkflow(
-        address token,
-        uint256 amount,
-        bytes calldata /* data */
-    )
+    /**
+     * @notice Execute a single swap workflow
+     * @param tokenIn The input token address
+     * @param amountIn The amount of input tokens
+     * @param data Should encode (address tokenOut, uint256 minAmountOut) but we use constructor tokenOut
+     * @return success Whether the swap succeeded
+     * @return amountOut The amount of output tokens received
+     */
+    function executeWorkflow(address tokenIn, uint256 amountIn, bytes calldata data)
         external
         override
-        returns (bool success, uint256 profit)
+        returns (bool success, uint256 amountOut)
     {
-        // Simulate swap: receive tokenOut with profit
-
-        // Calculate output amount (with profit)
-        uint256 outputAmount = (amount * profitMultiplier) / 10000;
-
-        // The flashloan contract already has the input tokens
-        // We just need to provide the output tokens (with profit)
-        // In a real scenario, we would swap via a DEX
-
-        // If tokenOut is the same as tokenIn, we need to mint more tokens
-        if (token == tokenOut) {
-            // Mint additional tokens to simulate profit
-            MockERC20 mockToken = MockERC20(token);
-            mockToken.mint(msg.sender, outputAmount);
-        } else {
-            // Different tokens - provide tokenOut to caller for repayment
-            // For Uniswap flash swap: caller needs tokenOut to repay pool
-            // The repayment amount includes Uniswap fees (typically 0.3% = 3000/1000000)
-            // We need to mint enough tokenOut to cover repayment + buffer
-
-            // Calculate repayment amount with Uniswap fee (0.3% = 3000 bps)
-            // For Uniswap V3: repayment = amount * (1 + fee/1000000)
-            // We use 1% buffer (10100/10000) to ensure we have enough
-            // This covers the 0.3% fee (3000/1000000 = 0.003 = 0.3%) with extra margin
-            uint256 repaymentAmount = amount;
-            uint256 repaymentWithFee = (repaymentAmount * 10100) / 10000; // 1% buffer covers 0.3% fee + margin
-
-            // Mint tokenOut for repayment
-            MockERC20 mockOutToken = MockERC20(tokenOut);
-            mockOutToken.mint(msg.sender, repaymentWithFee);
-
-            // Calculate and mint profit in original token (tokenIn)
-            // Profit = (outputAmount - amount) in tokenIn terms
-            // outputAmount = amount * profitMultiplier / 10000
-            // This profit needs to cover: contract fee + min profit requirement + Uniswap fee overhead
-            uint256 profitAmount = outputAmount > amount ? outputAmount - amount : 0;
-            if (profitAmount > 0) {
-                MockERC20 mockInToken = MockERC20(token);
-                mockInToken.mint(msg.sender, profitAmount);
+        // Decode expected tokenOut from data (for validation)
+        address expectedTokenOut;
+        uint256 minAmountOut;
+        if (data.length >= 64) {
+            (expectedTokenOut, minAmountOut) = abi.decode(data, (address, uint256));
+            // Use expectedTokenOut if provided, otherwise use constructor tokenOut
+            if (expectedTokenOut != address(0)) {
+                tokenOut = expectedTokenOut;
             }
         }
 
-        // Calculate profit in input token terms
-        if (outputAmount > amount) {
-            profit = outputAmount - amount;
-            success = true;
-        } else {
-            profit = 0;
-            success = false;
+        // Calculate output amount
+        amountOut = (amountIn * outputMultiplier) / 10000;
+
+        // Check minimum amount out
+        if (amountOut < minAmountOut) {
+            return (false, 0);
         }
 
-        emit WorkflowExecuted(token, amount, profit);
+        // The flashloan contract already has the input tokens
+        // We need to provide the output tokens
+        // In a real scenario, we would swap via a DEX
+
+        // Mint output tokens to the caller (flashloan contract)
+        MockERC20 mockOutToken = MockERC20(tokenOut);
+        mockOutToken.mint(msg.sender, amountOut);
+
+        success = true;
+        emit WorkflowExecuted(tokenIn, tokenOut, amountIn, amountOut);
     }
 
     // Helper to mint tokens for testing
@@ -94,7 +76,7 @@ contract MockWorkflow is IFlashloanWorkflow {
  * @notice Mock workflow that always fails
  */
 contract FailingWorkflow is IFlashloanWorkflow {
-    function executeWorkflow(address, uint256, bytes calldata) external pure override returns (bool, uint256) {
+    function executeWorkflow(address, uint256, bytes calldata) external pure override returns (bool success, uint256 amountOut) {
         return (false, 0);
     }
 }

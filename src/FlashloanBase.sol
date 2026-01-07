@@ -39,7 +39,7 @@ abstract contract FlashloanBase is
 
     event FeeUpdated(uint256 oldFee, uint256 newFee);
     event MinProfitUpdated(uint256 oldMinProfit, uint256 newMinProfit);
-    event WorkflowExecuted(address indexed workflow, address indexed token, uint256 amount, bool success);
+    event WorkflowExecuted(address indexed workflow, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, bool success);
 
     /// @notice Custom errors
     error InvalidAmount();
@@ -51,6 +51,8 @@ abstract contract FlashloanBase is
     error WorkflowExecutionFailed();
     error FeeTooHigh();
     error InvalidFee();
+    error InvalidWorkflowChain();
+    error WorkflowChainMismatch();
 
     /**
      * @notice Initialize the contract
@@ -104,26 +106,101 @@ abstract contract FlashloanBase is
     }
 
     /**
-     * @notice Execute custom workflow
+     * @notice Execute a single workflow (tokenIn -> tokenOut)
      * @param workflow The workflow contract to execute
-     * @param token The token address
-     * @param amount The amount of tokens
-     * @param data Custom data for the workflow
+     * @param tokenIn The input token address
+     * @param amountIn The amount of input tokens
+     * @param data Custom data for the workflow (should encode tokenOut and swap parameters)
      * @return success Whether the workflow succeeded
-     * @return profit The profit made
+     * @return amountOut The amount of output tokens received
      */
-    function _executeWorkflow(address workflow, address token, uint256 amount, bytes memory data)
+    function _executeWorkflow(address workflow, address tokenIn, uint256 amountIn, bytes memory data)
         internal
-        returns (bool success, uint256 profit)
+        returns (bool success, uint256 amountOut)
     {
         if (workflow == address(0)) revert InvalidWorkflow();
 
         // Execute the workflow
-        (success, profit) = IFlashloanWorkflow(workflow).executeWorkflow(token, amount, data);
+        (success, amountOut) = IFlashloanWorkflow(workflow).executeWorkflow(tokenIn, amountIn, data);
 
-        emit WorkflowExecuted(workflow, token, amount, success);
+        // Decode tokenOut from data for event emission
+        // Data format: (address tokenOut, uint256 minAmountOut, ...)
+        address tokenOut = address(0);
+        if (data.length >= 32) {
+            // Decode first parameter (tokenOut)
+            (tokenOut,) = abi.decode(data, (address, uint256));
+        }
+
+        emit WorkflowExecuted(workflow, tokenIn, tokenOut, amountIn, amountOut, success);
 
         if (!success) revert WorkflowExecutionFailed();
+    }
+
+    /**
+     * @notice Execute multiple workflows in sequence
+     * @dev Workflows must form a chain: workflow[i].tokenOut == workflow[i+1].tokenIn
+     * @dev First workflow's tokenIn must be the borrowed token
+     * @dev Last workflow's tokenOut must be the borrowed token (for repayment)
+     * @param workflows Array of workflow contracts to execute
+     * @param workflowData Array of data for each workflow
+     * @param borrowedToken The token that was borrowed (must match first workflow's tokenIn and last workflow's tokenOut)
+     * @param borrowedAmount The amount of tokens borrowed
+     * @return finalAmount The final amount of borrowed tokens after all workflows
+     */
+    function _executeWorkflowChain(
+        address[] memory workflows,
+        bytes[] memory workflowData,
+        address borrowedToken,
+        uint256 borrowedAmount
+    ) internal returns (uint256 finalAmount) {
+        if (workflows.length == 0) revert InvalidWorkflowChain();
+        if (workflows.length != workflowData.length) revert WorkflowChainMismatch();
+
+        address currentToken = borrowedToken;
+        uint256 currentAmount = borrowedAmount;
+
+        // Store first workflow's tokenIn for validation
+        address firstWorkflowTokenIn = borrowedToken;
+
+        // Execute each workflow in sequence
+        for (uint256 i = 0; i < workflows.length; i++) {
+            // Decode tokenOut from workflow data
+            // Data format: (address tokenOut, uint256 minAmountOut, ...)
+            address tokenOut;
+            if (workflowData[i].length >= 32) {
+                (tokenOut,) = abi.decode(workflowData[i], (address, uint256));
+            } else {
+                revert InvalidWorkflowChain();
+            }
+
+            // Validate workflow chain
+            if (i == 0) {
+                // First workflow's tokenIn must be the borrowed token
+                if (currentToken != borrowedToken) revert InvalidWorkflowChain();
+            } else {
+                // For subsequent workflows, tokenIn must match previous workflow's tokenOut
+                // This is validated implicitly by using currentToken
+            }
+
+            if (i == workflows.length - 1) {
+                // Last workflow's tokenOut must equal first workflow's tokenIn (borrowed token)
+                // This ensures the chain returns to the original token for repayment
+                if (tokenOut != firstWorkflowTokenIn) revert InvalidWorkflowChain();
+            }
+
+            // Execute workflow
+            (bool success, uint256 amountOut) = _executeWorkflow(workflows[i], currentToken, currentAmount, workflowData[i]);
+
+            if (!success) revert WorkflowExecutionFailed();
+
+            // Update for next iteration
+            currentToken = tokenOut;
+            currentAmount = amountOut;
+        }
+
+        // Final amount should be in borrowed token
+        if (currentToken != borrowedToken) revert InvalidWorkflowChain();
+        finalAmount = currentAmount;
     }
 
     /**
