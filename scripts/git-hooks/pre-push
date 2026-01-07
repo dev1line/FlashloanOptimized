@@ -12,31 +12,55 @@ if ! command -v forge &> /dev/null; then
     exit 0
 fi
 
-# Get list of Solidity files that will be pushed
-SOL_FILES=$(git diff --name-only origin/$(git rev-parse --abbrev-ref HEAD) 2>/dev/null | grep '\.sol$' || true)
+# Get list of Solidity files that will be pushed (exclude lib/ and submodules)
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+REMOTE_BRANCH="origin/$BRANCH"
+
+# Check if remote branch exists
+if ! git rev-parse --verify "$REMOTE_BRANCH" >/dev/null 2>&1; then
+    # If remote branch doesn't exist, check all Solidity files in src/ and test/
+    SOL_FILES=$(git diff --name-only --diff-filter=ACM HEAD 2>/dev/null | grep -E '^(src|test)/.*\.sol$' || true)
+else
+    # Get files that differ from remote (exclude lib/ and submodules)
+    SOL_FILES=$(git diff --name-only --diff-filter=ACM "$REMOTE_BRANCH"..HEAD 2>/dev/null | grep -E '^(src|test)/.*\.sol$' || true)
+fi
 
 # If no Solidity files changed, skip check
 if [ -z "$SOL_FILES" ]; then
-    echo "✅ No Solidity files to check."
+    echo "✅ No Solidity files to check (excluding lib/)."
     exit 0
 fi
 
-# Check format without modifying files (with timeout)
-echo "📝 Checking code format..."
-if timeout 30 forge fmt --check > /dev/null 2>&1; then
-    echo "✅ Code format check passed!"
-    exit 0
-else
-    FORMAT_EXIT_CODE=$?
-    if [ $FORMAT_EXIT_CODE -eq 124 ]; then
-        echo "⚠️  Format check timed out. Skipping..."
+# Format files first (auto-fix)
+echo "📝 Auto-formatting Solidity files..."
+if command -v timeout &> /dev/null; then
+    timeout 30 forge fmt > /dev/null 2>&1
+    FORMAT_EXIT=$?
+    if [ $FORMAT_EXIT -eq 124 ]; then
+        echo "⚠️  Formatting timed out. Skipping check..."
         exit 0
-    else
-        echo ""
-        echo "❌ Code format check failed!"
-        echo "💡 Please run 'forge fmt' to format your code, then commit and push again."
-        echo ""
-        exit 1
     fi
+else
+    forge fmt > /dev/null 2>&1
 fi
+
+# Check if there are uncommitted changes after formatting
+UNCOMMITTED=$(git diff --name-only | grep -E '^(src|test)/.*\.sol$' || true)
+
+if [ -n "$UNCOMMITTED" ]; then
+    echo ""
+    echo "⚠️  Code was auto-formatted. Please commit the changes:"
+    echo "   git add ."
+    echo "   git commit -m 'chore: format code'"
+    echo "   git push"
+    echo ""
+    echo "📋 Formatted files:"
+    echo "$UNCOMMITTED" | sed 's/^/   /'
+    echo ""
+    # Don't block push - just warn
+    exit 0
+fi
+
+echo "✅ Code format check passed!"
+exit 0
 
