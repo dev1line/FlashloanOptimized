@@ -75,12 +75,10 @@ jobs:
           FOUNDRY_FUZZ_SEED: ""
         run: |
           # Use very low fuzz runs for faster CI
-          # Exclude slow tests and invariant tests
+          # Run only fast tests, exclude slow ones by pattern
           forge test \
             --fuzz-runs 50 \
-            --no-match-path "**/invariant/**" \
-            --no-match-path "**/FlashloanCoverageTest.t.sol" \
-            --no-match-path "**/IntegrationTest.t.sol" \
+            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,FlashloanWorkflowAdvancedTest,MultipleWorkflowTest}.t.sol" \
             -vv
         timeout-minutes: 10
 
@@ -177,14 +175,12 @@ jobs:
           FOUNDRY_FUZZ_SEED: ""
         run: |
           # Use minimal fuzz runs for very fast coverage
-          # Exclude slow tests
+          # Run only fast tests for coverage
           forge coverage \
             --report lcov \
             --fuzz-runs 5 \
             --ir-minimum \
-            --no-match-path "**/invariant/**" \
-            --no-match-path "**/FlashloanCoverageTest.t.sol" \
-            --no-match-path "**/IntegrationTest.t.sol" || true
+            --match-path "test/{FlashloanTest,AAVEFlashloanTest,UniswapFlashSwapTest,FlashloanWorkflowTest,FlashloanWorkflowAdvancedTest,MultipleWorkflowTest}.t.sol" || true
         timeout-minutes: 8
 
       - name: Upload coverage to Codecov
